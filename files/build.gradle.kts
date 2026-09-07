@@ -15,3 +15,5 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+dependencies { implementation(project(":domain")) }
