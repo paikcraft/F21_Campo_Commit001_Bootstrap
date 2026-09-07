@@ -1,7 +1,7 @@
 buildscript {
     dependencies {
         classpath("com.google.devtools.ksp:symbol-processing-gradle-plugin") {
-            version { strictly("2.3.21-2.0.2") }
+            version { strictly("2.3.11") }
         }
     }
 }
