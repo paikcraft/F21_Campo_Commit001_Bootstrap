@@ -19,4 +19,6 @@ android {
 
 dependencies {
     implementation(project(":receiver-api"))
+    implementation(project(":domain"))
+    testImplementation(libs.junit4)
 }
