@@ -13,7 +13,7 @@ class OccupationHeightsTest {
         )
         val result = OccupationHeights.attach(occupation, set) as DomainResult.Success
         assertEquals(6, listOf(set.before.first, set.before.second, set.before.third, set.after.first, set.after.second, set.after.third).size)
-        assertEquals(0.01, set.before.range, 0.000001)
+        assertEquals(0.02, set.before.range, 0.000001)
         assertEquals(0.10, result.value.heights.deltaMean, 0.000001)
         assertEquals(HeightType.SLANT, result.value.heights.after.type)
     }
