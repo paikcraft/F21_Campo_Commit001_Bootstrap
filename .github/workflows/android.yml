@@ -33,3 +33,13 @@ jobs:
 
       - name: Build lab debug
         run: gradle assembleLabDebug --stacktrace
+
+      - name: Upload APKs
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f21-campo-debug-apks
+          path: |
+            app/build/outputs/apk/operational/debug/*.apk
+            app/build/outputs/apk/lab/debug/*.apk
+          if-no-files-found: error
