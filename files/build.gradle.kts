@@ -16,4 +16,7 @@ android {
     }
 }
 
-dependencies { implementation(project(":domain")) }
+dependencies {
+    implementation(project(":domain"))
+    testImplementation(libs.junit4)
+}
