@@ -65,6 +65,8 @@ dependencies {
     implementation(project(":hnproject"))
     implementation(project(":receiver-api"))
     implementation(project(":receiver-manual"))
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
