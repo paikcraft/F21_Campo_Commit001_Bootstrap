@@ -36,4 +36,6 @@ labRelease
 - Gradle wrapper será incluído separadamente.
 - build Android não executado neste ambiente por ausência de SDK/Gradle instalado.
 
+GIT COMMIT: c5b3aae
+
 NEXT COMMIT: 002 — Domain Primitives
