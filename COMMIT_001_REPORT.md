@@ -1,6 +1,6 @@
 # COMMIT 001 — Relatório
 
-STATUS: SOURCE BOOTSTRAP CRIADO / BUILD ANDROID AINDA NÃO EXECUTADO NESTE AMBIENTE
+STATUS: PASS
 
 ## Toolchain
 - JDK 17
@@ -31,11 +31,17 @@ labRelease
 
 ## Validação realizada
 - estrutura de diretórios e arquivos criada.
-- teste JVM de bootstrap incluído.
-- teste Android de package incluído.
-- Gradle wrapper será incluído separadamente.
-- build Android não executado neste ambiente por ausência de SDK/Gradle instalado.
+- testes JVM executados no GitHub Actions: PASS.
+- `assembleOperationalDebug` executado no GitHub Actions: PASS.
+- `assembleLabDebug` executado no GitHub Actions: PASS.
+- APK `operationalDebug` instalado e executado em aparelho físico: PASS.
+- evidência visual: tela exibiu `F-21 Campo`, versão `0.1.0-dev-debug`, modo `OPERATIONAL` e `Bootstrap OK`.
+- workflow publica os APKs de debug como artefatos.
 
-GIT COMMIT: c5b3aae
+GIT COMMIT: 2585f49
 
-NEXT COMMIT: 002 — Domain Primitives
+## Evidência externa
+- Execução física confirmada pelo operador em 2026-09-07.
+- A captura de tela foi fornecida no encerramento do Commit 001.
+
+NEXT COMMIT: 002 — Domain Primitives (iniciado)
