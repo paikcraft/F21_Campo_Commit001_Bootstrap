@@ -1,0 +1,16 @@
+.gradle/
+**/build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+
+# Signing / secrets
+*.jks
+*.keystore
+*.p12
+secrets.properties
+
+# LAB captures must be reviewed/sanitized before versioning
+lab-captures/
+captures/
