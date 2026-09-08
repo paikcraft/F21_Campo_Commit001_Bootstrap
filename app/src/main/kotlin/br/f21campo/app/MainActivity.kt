@@ -88,6 +88,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     val context = LocalContext.current
     val rawStore = remember { RawFileStore(File(context.filesDir, "raw")) }
     var name by remember { mutableStateOf("") }
+    var projectName by remember { mutableStateOf("") }
     var locality by remember { mutableStateOf("") }
     var savedId by remember { mutableStateOf<EntityId?>(null) }
     var status by remember { mutableStateOf("Banco de Estações") }
@@ -229,8 +230,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
                     Text("ETAPA 1/7 · PROJETO", style = MaterialTheme.typography.titleMedium)
                     Text("Identifique a comissão ou trabalho de campo.")
-                    OutlinedTextField(name, { name = it }, label = { Text("Nome do projeto/comissão") })
-                    Button(onClick = { if (name.isBlank()) status = "Informe o nome do projeto" else { status = "Projeto selecionado"; newStep = 2 } }) { Text("AVANÇAR") }
+                    OutlinedTextField(projectName, { projectName = it }, label = { Text("Nome do projeto/LH") })
+                    Button(onClick = { if (projectName.isBlank()) status = "Informe o nome do projeto/LH" else { scope.launch { val project = br.f21campo.domain.Project(EntityId.new(), projectName.trim(), Instant.now()); repository.save(project); occupation = occupation.copy(projectId = project.id); status = "Projeto salvo localmente"; newStep = 2 } } }) { Text("SALVAR E AVANÇAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 2) {
                     Button(onClick = { newStep = 1 }) { Text("VOLTAR") }
