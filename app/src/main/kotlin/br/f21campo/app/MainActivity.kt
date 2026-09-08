@@ -58,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
@@ -118,7 +119,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()).imePadding(),
+                modifier = Modifier.fillMaxSize().padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 48.dp).verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -221,8 +222,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Button(enabled = occupation.state == OccupationState.DRAFT, onClick = {
                     val result = OccupationStateMachine.ready(occupation)
                     if (result is DomainResult.Success) occupation = result.value
-                    else status = "Registre a referência e ao menos uma altura BEFORE"
+                    else status = when (val error = (result as DomainResult.Failure).error) {
+                        is br.f21campo.domain.DomainError.InvalidValue -> "READY bloqueado: ${error.reason}"
+                        else -> "READY bloqueado: verifique os dados da ocupação"
+                    }
                 }) { Text("READY") }
+                if (occupation.state == OccupationState.DRAFT) {
+                    Text("Para READY: referência ${if (occupation.referencePointId != null) "OK" else "pendente"} · altura BEFORE ${if (occupation.hasBeforeHeight) "OK" else "pendente"}")
+                }
                 Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("INICIAR") }
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
                 Button(enabled = occupation.state == OccupationState.STOPPED && rawImported, onClick = {
