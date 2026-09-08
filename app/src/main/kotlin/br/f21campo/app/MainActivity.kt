@@ -253,7 +253,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("ETAPA 2/7 · ESTAÇÃO", style = MaterialTheme.typography.titleMedium)
                     OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
                     OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") })
-                    Button(onClick = { if (name.isBlank()) status = "Informe o nome da estação" else { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name.trim(), locality.ifBlank { null }, null, Instant.now())); status = "Estação salva — ID preservado"; newStep = 3 } } }) { Text("SALVAR E AVANÇAR") }
+                    Button(onClick = { if (name.isBlank() || locality.isBlank()) status = "Informe o nome da estação e a localidade" else { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name.trim(), locality.trim(), null, Instant.now())); status = "Estação salva — ID preservado"; newStep = 3 } } }) { Text("SALVAR E AVANÇAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 3) {
                     Button(onClick = { newStep = 2 }) { Text("VOLTAR") }
