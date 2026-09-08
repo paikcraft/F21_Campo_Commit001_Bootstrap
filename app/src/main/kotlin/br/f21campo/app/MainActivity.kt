@@ -111,6 +111,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var newStep by remember { mutableStateOf(1) }
     var projects by remember { mutableStateOf(emptyList<br.f21campo.domain.Project>()) }
     var stations by remember { mutableStateOf(emptyList<Station>()) }
+    var stationHistory by remember { mutableStateOf(emptyList<Occupation>()) }
     var rawImported by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -211,7 +212,20 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Estações salvas neste aparelho", style = MaterialTheme.typography.titleMedium)
                     if (stations.isEmpty()) Text("Nenhuma estação salva ainda")
                     stations.forEach { station ->
-                        Button(onClick = { savedId = station.id; name = station.name; locality = station.locality.orEmpty(); status = "Estação selecionada: ${station.name}" }) { Text("${station.name} · ${station.locality ?: "sem localidade"}") }
+                        Button(onClick = { savedId = station.id; name = station.name; locality = station.locality.orEmpty(); scope.launch { stationHistory = repository.findOccupationsByStation(station.id) }; status = "Estação selecionada: ${station.name}" }) { Text("${station.name} · ${station.locality ?: "sem localidade"}") }
+                    }
+                    if (savedId != null) {
+                        Text("HISTÓRICO DE RASTREIOS", style = MaterialTheme.typography.titleMedium)
+                        if (stationHistory.isEmpty()) Text("Nenhum rastreio registrado para esta estação")
+                        stationHistory.forEach { item ->
+                            Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(12.dp)) {
+                                    Text("Estado: ${item.state}", style = MaterialTheme.typography.titleSmall)
+                                    Text("Início: ${item.confirmedStart ?: item.plannedStart ?: "não iniciado"}")
+                                    Text("Fim: ${item.confirmedStop ?: "em aberto"}")
+                                }
+                            }
+                        }
                     }
                     Text(status)
                 } else if (route == "SETTINGS") {

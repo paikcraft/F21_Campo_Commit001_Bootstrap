@@ -30,6 +30,7 @@ interface OccupationDao {
     @Upsert suspend fun upsert(occupation: OccupationEntity)
     @Query("SELECT * FROM occupations WHERE id = :id") suspend fun findById(id: String): OccupationEntity?
     @Query("SELECT * FROM occupations WHERE state NOT IN ('COLLECTED', 'VALIDATED', 'ABORTED') ORDER BY confirmedStartEpochMillis DESC, plannedStartEpochMillis DESC") suspend fun findIncomplete(): List<OccupationEntity>
+    @Query("SELECT * FROM occupations WHERE stationId = :stationId ORDER BY confirmedStartEpochMillis DESC, plannedStartEpochMillis DESC") suspend fun findByStation(stationId: String): List<OccupationEntity>
 }
 
 @Dao
