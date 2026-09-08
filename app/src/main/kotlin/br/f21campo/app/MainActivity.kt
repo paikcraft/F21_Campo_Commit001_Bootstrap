@@ -74,6 +74,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var before by remember { mutableStateOf(listOf("", "", "")) }
     var after by remember { mutableStateOf(listOf("", "", "")) }
     var event by remember { mutableStateOf("") }
+    var showHome by remember { mutableStateOf(true) }
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             val imported = File.createTempFile("import-", ".part", context.cacheDir)
@@ -91,6 +92,20 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                if (showHome) {
+                    Spacer(Modifier.height(24.dp))
+                    Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
+                    Text("Versão ${BuildConfig.VERSION_NAME}")
+                    Text("Modo: ${BuildConfig.BUILD_MODE}")
+                    Spacer(Modifier.height(24.dp))
+                    Button(onClick = { showHome = false }) { Text("Novo rastreio") }
+                    Button(onClick = { showHome = false }) { Text("Continuar rastreio") }
+                    Button(onClick = { showHome = false; status = "Projetos — seleção em preparação" }) { Text("Projetos") }
+                    Button(onClick = { showHome = false; status = "Banco de Estações" }) { Text("Banco de Estações") }
+                    Button(onClick = { status = "Configurações — em preparação" }) { Text("Configurações") }
+                    Button(onClick = { status = "F-21 Campo ${BuildConfig.VERSION_NAME}" }) { Text("Sobre") }
+                } else {
+                Button(onClick = { showHome = true }) { Text("Início") }
                 Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
                 Text("Versão ${BuildConfig.VERSION_NAME}")
                 Text("Modo: ${BuildConfig.BUILD_MODE}")
@@ -140,6 +155,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
                 Button(onClick = { if (event.isNotBlank()) status = "Evento registrado: $event" }) { Text("Registrar evento") }
                 Button(onClick = { rawPicker.launch("*/*") }) { Text("Importar arquivo bruto") }
+                }
             }
         }
     }
