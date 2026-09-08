@@ -48,6 +48,7 @@ import br.f21campo.domain.ReferencePointType
 import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.OccupationEventCategory
 import br.f21campo.domain.EventSeverity
+import br.f21campo.domain.HeightMeasurement
 import java.time.Instant
 import java.io.File
 import kotlinx.coroutines.launch
@@ -63,9 +64,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10)
             .build()
-        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao())) }
+        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao(), database.heightMeasurementDao())) }
     }
 }
 
@@ -80,8 +81,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var occupation by remember { mutableStateOf(Occupation(EntityId.new(), EntityId.new(), EntityId.new())) }
     var receiverModel by remember { mutableStateOf("") }
     var antennaModel by remember { mutableStateOf("") }
-    var before by remember { mutableStateOf(listOf("", "", "")) }
-    var after by remember { mutableStateOf(listOf("", "", "")) }
+    var before by remember { mutableStateOf(listOf("")) }
+    var after by remember { mutableStateOf(listOf("")) }
     var event by remember { mutableStateOf("") }
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
@@ -187,8 +188,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     occupation = Occupation(EntityId.new(), savedId ?: EntityId.new(), EntityId.new())
                     receiverModel = ""
                     antennaModel = ""
-                    before = listOf("", "", "")
-                    after = listOf("", "", "")
+                    before = listOf("")
+                    after = listOf("")
                     event = ""
                     status = "Nova ocupação criada"
                 }) { Text("Nova ocupação") }
@@ -209,24 +210,35 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
                 Text("Alturas BEFORE")
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { before = before + "" }) { Text("+ BEFORE") }
+                    Button(enabled = before.size > 1, onClick = { before = before.dropLast(1) }) { Text("−") }
+                }
                 Button(onClick = {
                     val validBefore = before.mapNotNull { it.toDoubleOrNull() }.firstOrNull { it.isFinite() }
                     if (validBefore != null) {
                         occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = validBefore)
-                        status = "Altura BEFORE registrada"
+                        scope.launch {
+                            before.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }.forEach { value -> repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.BEFORE, value, HeightType.VERTICAL, Instant.now())) }
+                            status = "${before.count { it.toDoubleOrNull() != null }} altura(s) BEFORE registrada(s)"
+                        }
                     } else {
                         status = "Informe ao menos uma altura BEFORE válida"
                     }
                 }) { Text("Registrar altura BEFORE") }
                 Text("Alturas AFTER")
                 after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { after = after + "" }) { Text("+ AFTER") }
+                    Button(enabled = after.size > 1, onClick = { after = after.dropLast(1) }) { Text("−") }
+                }
                 Button(onClick = {
-                    runCatching {
-                        val b = before.map(String::toDouble)
-                        val a = after.map(String::toDouble)
-                        HeightSet(HeightObservation(HeightPhase.BEFORE, b[0], b[1], b[2], HeightType.VERTICAL), HeightObservation(HeightPhase.AFTER, a[0], a[1], a[2], HeightType.VERTICAL))
-                    }.onSuccess { status = "Seis alturas registradas" }
-                }) { Text("Registrar alturas informadas") }
+                    val values = after.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }
+                    if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida" else scope.launch {
+                        values.forEach { value -> repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.AFTER, value, HeightType.VERTICAL, Instant.now())) }
+                        status = "${values.size} altura(s) AFTER registrada(s)"
+                    }
+                }) { Text("Registrar alturas AFTER") }
                 OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
                 Button(onClick = {
                     if (event.isNotBlank()) {

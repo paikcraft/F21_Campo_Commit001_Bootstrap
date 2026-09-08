@@ -69,3 +69,14 @@ data class OccupationEventEntity(
     val description: String,
     val source: String,
 )
+
+@Entity(tableName = "height_measurements")
+data class HeightMeasurementEntity(
+    @PrimaryKey val id: String,
+    val occupationId: String,
+    val phase: String,
+    val valueMeters: Double,
+    val type: String,
+    val observedAtEpochMillis: Long?,
+    val observation: String?,
+)

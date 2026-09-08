@@ -55,4 +55,10 @@ object Migrations {
             database.execSQL("ALTER TABLE occupations_new RENAME TO occupations")
         }
     }
+    val V9_TO_V10 = object : Migration(9, 10) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS height_measurements (id TEXT NOT NULL PRIMARY KEY, occupationId TEXT NOT NULL, phase TEXT NOT NULL, valueMeters REAL NOT NULL, type TEXT NOT NULL, observedAtEpochMillis INTEGER, observation TEXT)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_height_measurements_occupationId ON height_measurements(occupationId)")
+        }
+    }
 }

@@ -41,3 +41,9 @@ interface OccupationEventDao {
     @Upsert suspend fun upsert(event: OccupationEventEntity)
     @Query("SELECT * FROM occupation_events WHERE occupationId = :occupationId ORDER BY atEpochMillis") suspend fun findByOccupation(occupationId: String): List<OccupationEventEntity>
 }
+
+@Dao
+interface HeightMeasurementDao {
+    @Upsert suspend fun upsert(measurement: HeightMeasurementEntity)
+    @Query("SELECT * FROM height_measurements WHERE occupationId = :occupationId ORDER BY phase, id") suspend fun findByOccupation(occupationId: String): List<HeightMeasurementEntity>
+}

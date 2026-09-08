@@ -7,6 +7,7 @@ import br.f21campo.domain.Station
 import br.f21campo.domain.ReferencePoint
 import br.f21campo.domain.Occupation
 import br.f21campo.domain.OccupationEvent
+import br.f21campo.domain.HeightMeasurement
 import java.time.Instant
 
 class ProjectStationRepository(
@@ -16,6 +17,7 @@ class ProjectStationRepository(
     private val occupationDao: OccupationDao? = null,
     private val artifactDao: OccupationArtifactDao? = null,
     private val eventDao: OccupationEventDao? = null,
+    private val heightDao: HeightMeasurementDao? = null,
 ) {
     suspend fun save(project: Project): DomainResult<Unit> {
         projectDao.upsert(project.toEntity())
@@ -53,6 +55,12 @@ class ProjectStationRepository(
     suspend fun save(event: OccupationEvent): DomainResult<Unit> {
         val dao = eventDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("event", "DAO not configured"))
         dao.upsert(OccupationEventEntity(event.id.value, event.occupationId.value, event.at.toEpochMilli(), event.category.name, event.severity.name, event.description, event.source.name))
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun saveHeight(occupationId: EntityId, measurement: HeightMeasurement): DomainResult<Unit> {
+        val dao = heightDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("height", "DAO not configured"))
+        dao.upsert(HeightMeasurementEntity(EntityId.new().value, occupationId.value, measurement.phase.name, measurement.valueMeters, measurement.type.name, measurement.observedAt?.toEpochMilli(), measurement.observation))
         return DomainResult.Success(Unit)
     }
 }
