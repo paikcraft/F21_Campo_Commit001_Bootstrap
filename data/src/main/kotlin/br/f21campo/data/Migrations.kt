@@ -61,4 +61,10 @@ object Migrations {
             database.execSQL("CREATE INDEX IF NOT EXISTS index_height_measurements_occupationId ON height_measurements(occupationId)")
         }
     }
+    val V10_TO_V11 = object : Migration(10, 11) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE occupations ADD COLUMN receiverSerial TEXT")
+            database.execSQL("ALTER TABLE occupations ADD COLUMN antennaSerial TEXT")
+        }
+    }
 }
