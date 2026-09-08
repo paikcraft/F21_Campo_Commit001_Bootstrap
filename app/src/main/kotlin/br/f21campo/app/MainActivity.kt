@@ -19,6 +19,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import br.f21campo.files.RawFileStore
 import androidx.room.Room
 import br.f21campo.data.F21Database
 import br.f21campo.data.ProjectStationRepository
@@ -36,6 +40,7 @@ import br.f21campo.domain.HeightSet
 import br.f21campo.domain.HeightType
 import br.f21campo.domain.DomainResult
 import java.time.Instant
+import java.io.File
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +56,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun StationScreen(repository: ProjectStationRepository) {
+    val context = LocalContext.current
+    val rawStore = remember { RawFileStore(File(context.filesDir, "raw")) }
     var name by remember { mutableStateOf("") }
     var locality by remember { mutableStateOf("") }
     var savedId by remember { mutableStateOf<EntityId?>(null) }
@@ -61,6 +68,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var before by remember { mutableStateOf(listOf("", "", "")) }
     var after by remember { mutableStateOf(listOf("", "", "")) }
     var event by remember { mutableStateOf("") }
+    val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val imported = File.createTempFile("import-", ".part", context.cacheDir)
+            context.contentResolver.openInputStream(uri)?.use { input -> imported.outputStream().use { output -> input.copyTo(output) } }
+            val stored = rawStore.import(imported)
+            imported.delete()
+            status = "Bruto importado: ${stored.sha256.take(12)}…"
+        }
+    }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -108,6 +124,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("Registrar seis alturas") }
                 OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
                 Button(onClick = { if (event.isNotBlank()) status = "Evento registrado: $event" }) { Text("Registrar evento") }
+                Button(onClick = { rawPicker.launch("*/*") }) { Text("Importar arquivo bruto") }
             }
         }
     }
