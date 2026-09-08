@@ -6,7 +6,6 @@ import br.f21campo.domain.Project
 import br.f21campo.domain.Station
 import br.f21campo.domain.ReferencePoint
 import br.f21campo.domain.Occupation
-import br.f21campo.domain.EntityId
 import java.time.Instant
 
 class ProjectStationRepository(
