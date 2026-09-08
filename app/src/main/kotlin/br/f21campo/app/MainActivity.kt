@@ -159,9 +159,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Text("Alturas BEFORE")
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Button(onClick = {
-                    val validBefore = before.mapNotNull { it.toDoubleOrNull() }.any { it.isFinite() }
-                    if (validBefore) {
-                        occupation = occupation.copy(hasBeforeHeight = true)
+                    val validBefore = before.mapNotNull { it.toDoubleOrNull() }.firstOrNull { it.isFinite() }
+                    if (validBefore != null) {
+                        occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = validBefore)
                         status = "Altura BEFORE registrada"
                     } else {
                         status = "Informe ao menos uma altura BEFORE válida"

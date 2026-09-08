@@ -7,7 +7,7 @@ import org.junit.Test
 
 class OccupationStateMachineTest {
     private val t = Instant.parse("2026-09-07T12:00:00Z")
-    private fun draft(hasBeforeHeight: Boolean = true) = Occupation(EntityId.new(), EntityId.new(), EntityId.new(), hasBeforeHeight = hasBeforeHeight)
+    private fun draft(hasBeforeHeight: Boolean = true) = Occupation(EntityId.new(), EntityId.new(), EntityId.new(), hasBeforeHeight = hasBeforeHeight, beforeHeightMeters = if (hasBeforeHeight) 1.5 else null)
 
     @Test fun mainFlowPreservesConfirmedTimestamps() {
         val ready = (OccupationStateMachine.ready(draft()) as DomainResult.Success).value

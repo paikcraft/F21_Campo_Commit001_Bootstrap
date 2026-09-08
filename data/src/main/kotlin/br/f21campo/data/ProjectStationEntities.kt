@@ -43,4 +43,5 @@ data class OccupationEntity(
     val receiverModel: String?,
     val antennaModel: String?,
     val hasBeforeHeight: Boolean,
+    val beforeHeightMeters: Double?,
 )

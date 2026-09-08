@@ -51,6 +51,7 @@ data class Occupation(
     val state: OccupationState = OccupationState.DRAFT,
     val equipment: EquipmentSnapshot? = null,
     val hasBeforeHeight: Boolean = false,
+    val beforeHeightMeters: Double? = null,
 )
 
 enum class HeightPhase { BEFORE, AFTER }
