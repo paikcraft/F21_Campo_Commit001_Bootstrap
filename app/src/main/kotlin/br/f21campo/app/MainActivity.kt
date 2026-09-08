@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4)
             .build()
         setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao())) }
     }
@@ -158,6 +158,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
                 Text("Alturas BEFORE")
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
+                Button(onClick = {
+                    val validBefore = before.mapNotNull { it.toDoubleOrNull() }.any { it.isFinite() }
+                    if (validBefore) {
+                        occupation = occupation.copy(hasBeforeHeight = true)
+                        status = "Altura BEFORE registrada"
+                    } else {
+                        status = "Informe ao menos uma altura BEFORE válida"
+                    }
+                }) { Text("Registrar altura BEFORE") }
                 Text("Alturas AFTER")
                 after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Button(onClick = {

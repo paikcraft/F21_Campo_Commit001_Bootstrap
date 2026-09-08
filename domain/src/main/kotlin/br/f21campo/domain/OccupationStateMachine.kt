@@ -3,8 +3,11 @@ package br.f21campo.domain
 import java.time.Instant
 
 object OccupationStateMachine {
-    fun ready(occupation: Occupation): DomainResult<Occupation> = transition(occupation, OccupationState.READY) {
+    fun ready(occupation: Occupation): DomainResult<Occupation> {
+        if (!occupation.hasBeforeHeight) return DomainResult.Failure(DomainError.InvalidValue("beforeHeight", "at least one BEFORE measurement is required before READY"))
+        return transition(occupation, OccupationState.READY) {
         occupation.copy(state = OccupationState.READY)
+    }
     }
 
     fun start(occupation: Occupation, at: Instant): DomainResult<Occupation> = transition(occupation, OccupationState.ACTIVE) {

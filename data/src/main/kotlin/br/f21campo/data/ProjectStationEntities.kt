@@ -42,4 +42,5 @@ data class OccupationEntity(
     val confirmedStopEpochMillis: Long?,
     val receiverModel: String?,
     val antennaModel: String?,
+    val hasBeforeHeight: Boolean,
 )
