@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9)
             .build()
         setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao())) }
     }
@@ -86,7 +86,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
     var showHome by remember { mutableStateOf(true) }
-    var durationMinutes by remember { mutableStateOf("20") }
+    var durationMinutes by remember { mutableStateOf("") }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -175,12 +175,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("Registrar referência") }
                 HorizontalDivider()
                 Text("Ocupação: ${occupation.state}")
-                OutlinedTextField(durationMinutes, { value -> durationMinutes = value.filter(Char::isDigit); occupation = occupation.copy(plannedDurationSeconds = (durationMinutes.toLongOrNull() ?: 20) * 60) }, label = { Text("Tempo planejado (minutos)") })
+                OutlinedTextField(durationMinutes, { value -> durationMinutes = value.filter(Char::isDigit); occupation = occupation.copy(plannedDurationSeconds = value.toLongOrNull()?.takeIf { it > 0 }?.times(60)) }, label = { Text("Tempo planejado (minutos, opcional)") })
                 val elapsedSeconds = occupation.confirmedStart?.let { start -> ((if (occupation.confirmedStop != null) occupation.confirmedStop!!.toEpochMilli() else nowEpochMillis) - start.toEpochMilli()).coerceAtLeast(0) / 1000 }
                 if (elapsedSeconds != null) {
                     val target = occupation.plannedDurationSeconds
-                    val reached = elapsedSeconds >= target
-                    Text("Tempo: ${elapsedSeconds / 60}m ${elapsedSeconds % 60}s / ${target / 60}m — ${if (reached) "TEMPO ATINGIDO" else "EM ANDAMENTO"}")
+                    val reached = target != null && elapsedSeconds >= target
+                    Text(if (target == null) "Tempo decorrido: ${elapsedSeconds / 60}m ${elapsedSeconds % 60}s — INDEFINIDO" else "Tempo: ${elapsedSeconds / 60}m ${elapsedSeconds % 60}s / ${target / 60}m — ${if (reached) "TEMPO ATINGIDO" else "EM ANDAMENTO"}")
+                    if (reached) Text("⚠ ALERTA: tempo selecionado já foi cumprido")
                 }
                 Button(onClick = {
                     occupation = Occupation(EntityId.new(), savedId ?: EntityId.new(), EntityId.new())

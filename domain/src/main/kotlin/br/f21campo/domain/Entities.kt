@@ -46,7 +46,7 @@ data class Occupation(
     val projectId: EntityId,
     val stationId: EntityId,
     val referencePointId: EntityId? = null,
-    val plannedDurationSeconds: Long = 20 * 60,
+    val plannedDurationSeconds: Long? = null,
     val plannedStart: Instant? = null,
     val confirmedStart: Instant? = null,
     val confirmedStop: Instant? = null,

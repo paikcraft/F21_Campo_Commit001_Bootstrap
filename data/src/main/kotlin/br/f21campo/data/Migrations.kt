@@ -45,4 +45,14 @@ object Migrations {
             database.execSQL("ALTER TABLE occupations ADD COLUMN plannedDurationSeconds INTEGER NOT NULL DEFAULT 1200")
         }
     }
+    val V8_TO_V9 = object : Migration(8, 9) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE occupations ADD COLUMN plannedDurationSeconds_new INTEGER")
+            database.execSQL("UPDATE occupations SET plannedDurationSeconds_new = plannedDurationSeconds")
+            database.execSQL("CREATE TABLE occupations_new (id TEXT NOT NULL PRIMARY KEY, projectId TEXT NOT NULL, stationId TEXT NOT NULL, referencePointId TEXT, plannedDurationSeconds INTEGER, state TEXT NOT NULL, plannedStartEpochMillis INTEGER, confirmedStartEpochMillis INTEGER, confirmedStopEpochMillis INTEGER, receiverModel TEXT, antennaModel TEXT, hasBeforeHeight INTEGER NOT NULL, beforeHeightMeters REAL)")
+            database.execSQL("INSERT INTO occupations_new SELECT id, projectId, stationId, referencePointId, plannedDurationSeconds_new, state, plannedStartEpochMillis, confirmedStartEpochMillis, confirmedStopEpochMillis, receiverModel, antennaModel, hasBeforeHeight, beforeHeightMeters FROM occupations")
+            database.execSQL("DROP TABLE occupations")
+            database.execSQL("ALTER TABLE occupations_new RENAME TO occupations")
+        }
+    }
 }
