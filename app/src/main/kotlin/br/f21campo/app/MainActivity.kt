@@ -87,6 +87,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
     var showHome by remember { mutableStateOf(true) }
+    var rawImported by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -98,6 +99,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
             imported.delete()
             scope.launch {
                 repository.saveRawArtifact(occupation.id, stored.path.absolutePath, stored.sizeBytes, stored.sha256)
+                rawImported = true
                 status = "Bruto RAW_RECEIVER importado: ${stored.sha256.take(12)}…"
             }
         }
@@ -191,6 +193,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     before = listOf("")
                     after = listOf("")
                     event = ""
+                    rawImported = false
                     status = "Nova ocupação criada"
                 }) { Text("Nova ocupação") }
                 OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
@@ -208,6 +211,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("READY") }
                 Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("INICIAR") }
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
+                Button(enabled = occupation.state == OccupationState.STOPPED && rawImported, onClick = {
+                    val result = OccupationStateMachine.collect(occupation, hasRawEvidence = rawImported)
+                    if (result is DomainResult.Success) { occupation = result.value; status = "Coleta finalizada — pronta para resumo" }
+                }) { Text("FINALIZAR COLETA") }
+                Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = {
+                    val result = OccupationStateMachine.validate(occupation)
+                    if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio validado" }
+                }) { Text("VALIDAR RASTREIO") }
                 Text("Alturas BEFORE")
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
