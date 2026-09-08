@@ -226,6 +226,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val totalSeconds = if (occupation.confirmedStart != null && occupation.confirmedStop != null) (occupation.confirmedStop!!.epochSecond - occupation.confirmedStart!!.epochSecond).coerceAtLeast(0) else null
                     Text("Duração real: ${totalSeconds?.let { "${it / 60}m ${it % 60}s" } ?: "em aberto"}")
                     Text("Tempo planejado: ${occupation.plannedDurationSeconds?.let { "${it / 60} min" } ?: "indefinido"}")
+                    val beforeValues = before.mapNotNull(String::toDoubleOrNull).filter(Double::isFinite)
+                    val afterValues = after.mapNotNull(String::toDoubleOrNull).filter(Double::isFinite)
+                    if (beforeValues.isNotEmpty()) Text("BEFORE: ${beforeValues.size} leitura(s), média ${"%.4f".format(beforeValues.average())} m, amplitude ${"%.4f".format(beforeValues.max() - beforeValues.min())} m")
+                    if (afterValues.isNotEmpty()) Text("AFTER: ${afterValues.size} leitura(s), média ${"%.4f".format(afterValues.average())} m, amplitude ${"%.4f".format(afterValues.max() - afterValues.min())} m")
+                    if (beforeValues.isNotEmpty() && afterValues.isNotEmpty()) Text("Delta das médias: ${"%.4f".format(afterValues.average() - beforeValues.average())} m")
                 }
                 Text("Alturas BEFORE")
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
