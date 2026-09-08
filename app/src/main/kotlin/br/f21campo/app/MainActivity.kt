@@ -51,6 +51,7 @@ import br.f21campo.domain.EventSeverity
 import java.time.Instant
 import java.io.File
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.rememberScrollState
@@ -62,7 +63,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8)
             .build()
         setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao())) }
     }
@@ -85,6 +86,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
     var showHome by remember { mutableStateOf(true) }
+    var durationMinutes by remember { mutableStateOf("20") }
+    var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -99,6 +102,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
         }
     }
     LaunchedEffect(occupation) { repository.save(occupation) }
+    LaunchedEffect(occupation.state, occupation.confirmedStart) {
+        while (occupation.state == OccupationState.ACTIVE) {
+            nowEpochMillis = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -166,6 +175,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("Registrar referência") }
                 HorizontalDivider()
                 Text("Ocupação: ${occupation.state}")
+                OutlinedTextField(durationMinutes, { value -> durationMinutes = value.filter(Char::isDigit); occupation = occupation.copy(plannedDurationSeconds = (durationMinutes.toLongOrNull() ?: 20) * 60) }, label = { Text("Tempo planejado (minutos)") })
+                val elapsedSeconds = occupation.confirmedStart?.let { start -> ((if (occupation.confirmedStop != null) occupation.confirmedStop!!.toEpochMilli() else nowEpochMillis) - start.toEpochMilli()).coerceAtLeast(0) / 1000 }
+                if (elapsedSeconds != null) {
+                    val target = occupation.plannedDurationSeconds
+                    val reached = elapsedSeconds >= target
+                    Text("Tempo: ${elapsedSeconds / 60}m ${elapsedSeconds % 60}s / ${target / 60}m — ${if (reached) "TEMPO ATINGIDO" else "EM ANDAMENTO"}")
+                }
                 Button(onClick = {
                     occupation = Occupation(EntityId.new(), savedId ?: EntityId.new(), EntityId.new())
                     receiverModel = ""

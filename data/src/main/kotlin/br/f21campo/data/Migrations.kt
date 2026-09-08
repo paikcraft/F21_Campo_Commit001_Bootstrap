@@ -40,4 +40,9 @@ object Migrations {
             database.execSQL("CREATE INDEX IF NOT EXISTS index_occupation_events_occupationId ON occupation_events(occupationId)")
         }
     }
+    val V7_TO_V8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE occupations ADD COLUMN plannedDurationSeconds INTEGER NOT NULL DEFAULT 1200")
+        }
+    }
 }
