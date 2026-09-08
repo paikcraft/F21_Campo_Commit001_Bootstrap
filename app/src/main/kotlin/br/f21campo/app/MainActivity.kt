@@ -182,9 +182,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         }
                     }
                 } else if (route == "PROJECTS") {
-                    Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
-                    Text("PROJETOS", style = MaterialTheme.typography.headlineSmall)
-                    Text("Cadastro do projeto de campo")
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("PROJETOS", color = Color.White, style = MaterialTheme.typography.headlineSmall); Text("Comissões e trabalhos salvos neste aparelho", color = Color(0xFFD5EAF5)) } }
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                     OutlinedTextField(name, { name = it }, label = { Text("Nome do projeto/comissão") })
                     Button(enabled = name.isNotBlank(), onClick = { scope.launch { repository.save(br.f21campo.domain.Project(EntityId.new(), name.trim(), Instant.now())); projects = repository.findAllProjects(); status = "Projeto salvo localmente" } }) { Text("SALVAR PROJETO") }
                     Text("Projetos salvos neste aparelho", style = MaterialTheme.typography.titleMedium)
@@ -194,9 +193,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     Text(status)
                 } else if (route == "STATIONS") {
-                    Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
-                    Text("BANCO DE ESTAÇÕES", style = MaterialTheme.typography.headlineSmall)
-                    Text("Estação atual e cadastro persistente")
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("BANCO DE ESTAÇÕES", color = Color.White, style = MaterialTheme.typography.headlineSmall); Text("Estações e localidades salvas neste aparelho", color = Color(0xFFD5EAF5)) } }
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                     OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
                     OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") })
                     Button(enabled = name.isNotBlank() && locality.isNotBlank(), onClick = { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name.trim(), locality.trim(), null, Instant.now())); stations = repository.findAllStations(); status = "Estação salva localmente — ID preservado" } }) { Text("SALVAR ESTAÇÃO") }
@@ -207,13 +205,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     Text(status)
                 } else if (route == "SETTINGS") {
-                    Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
-                    Text("CONFIGURAÇÕES", style = MaterialTheme.typography.headlineSmall)
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAÇÕES", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp)) }
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                     Text("Modo: ${BuildConfig.BUILD_MODE}")
                     Text("O aplicativo funciona offline e registra a origem manual dos equipamentos.")
                 } else if (route == "ABOUT") {
-                    Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
-                    Text("SOBRE", style = MaterialTheme.typography.headlineSmall)
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Text("SOBRE", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp)) }
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                     Text("F-21 Campo")
                     Text("Versão ${BuildConfig.VERSION_NAME}")
                     Text("Fluxo manual de rastreio, persistência e proveniência.")
