@@ -94,6 +94,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var showHome by remember { mutableStateOf(true) }
     var route by remember { mutableStateOf("HOME") }
     var newStep by remember { mutableStateOf(1) }
+    var projects by remember { mutableStateOf(emptyList<br.f21campo.domain.Project>()) }
+    var stations by remember { mutableStateOf(emptyList<Station>()) }
     var rawImported by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -123,6 +125,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
             nowEpochMillis = System.currentTimeMillis()
             delay(1000)
         }
+    }
+    LaunchedEffect(route) {
+        if (route == "PROJECTS") projects = repository.findAllProjects()
+        if (route == "STATIONS") stations = repository.findAllStations()
     }
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -160,7 +166,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("PROJETOS", style = MaterialTheme.typography.headlineSmall)
                     Text("Cadastro do projeto de campo")
                     OutlinedTextField(name, { name = it }, label = { Text("Nome do projeto/comissão") })
-                    Button(onClick = { scope.launch { repository.save(br.f21campo.domain.Project(EntityId.new(), name, Instant.now())); status = "Projeto salvo" } }) { Text("SALVAR PROJETO") }
+                    Button(enabled = name.isNotBlank(), onClick = { scope.launch { repository.save(br.f21campo.domain.Project(EntityId.new(), name.trim(), Instant.now())); projects = repository.findAllProjects(); status = "Projeto salvo localmente" } }) { Text("SALVAR PROJETO") }
+                    Text("Projetos salvos neste aparelho", style = MaterialTheme.typography.titleMedium)
+                    if (projects.isEmpty()) Text("Nenhum projeto salvo ainda")
+                    projects.forEach { project ->
+                        Button(onClick = { name = project.name; status = "Projeto selecionado: ${project.name}" }) { Text(project.name) }
+                    }
                     Text(status)
                 } else if (route == "STATIONS") {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
@@ -168,7 +179,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Estação atual e cadastro persistente")
                     OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
                     OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") })
-                    Button(onClick = { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name, locality.ifBlank { null }, null, Instant.now())); status = "Estação salva — ID preservado" } }) { Text("SALVAR ESTAÇÃO") }
+                    Button(enabled = name.isNotBlank() && locality.isNotBlank(), onClick = { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name.trim(), locality.trim(), null, Instant.now())); stations = repository.findAllStations(); status = "Estação salva localmente — ID preservado" } }) { Text("SALVAR ESTAÇÃO") }
+                    Text("Estações salvas neste aparelho", style = MaterialTheme.typography.titleMedium)
+                    if (stations.isEmpty()) Text("Nenhuma estação salva ainda")
+                    stations.forEach { station ->
+                        Button(onClick = { savedId = station.id; name = station.name; locality = station.locality.orEmpty(); status = "Estação selecionada: ${station.name}" }) { Text("${station.name} · ${station.locality ?: "sem localidade"}") }
+                    }
                     Text(status)
                 } else if (route == "SETTINGS") {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }

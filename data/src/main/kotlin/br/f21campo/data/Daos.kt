@@ -8,12 +8,14 @@ import androidx.room.Upsert
 interface ProjectDao {
     @Upsert suspend fun upsert(project: ProjectEntity)
     @Query("SELECT * FROM projects WHERE id = :id") suspend fun findById(id: String): ProjectEntity?
+    @Query("SELECT * FROM projects ORDER BY createdAtEpochMillis DESC") suspend fun findAll(): List<ProjectEntity>
 }
 
 @Dao
 interface StationDao {
     @Upsert suspend fun upsert(station: StationEntity)
     @Query("SELECT * FROM stations WHERE id = :id") suspend fun findById(id: String): StationEntity?
+    @Query("SELECT * FROM stations ORDER BY createdAtEpochMillis DESC") suspend fun findAll(): List<StationEntity>
 }
 
 @Dao
