@@ -101,6 +101,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var antennaSerial by remember { mutableStateOf("") }
     var before by remember { mutableStateOf(listOf("")) }
     var after by remember { mutableStateOf(listOf("")) }
+    var beforeUndo by remember { mutableStateOf(emptyList<List<String>>()) }
+    var afterUndo by remember { mutableStateOf(emptyList<List<String>>()) }
     var beforeUnit by remember { mutableStateOf<String?>(null) }
     var afterUnit by remember { mutableStateOf<String?>(null) }
     var event by remember { mutableStateOf("") }
@@ -285,7 +287,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
                     Text("Selecionada: ${beforeUnit ?: "nenhuma — selecione uma unidade"}")
                     before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { before = before.dropLast(1) }) { Text("−") } }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }; Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") } }
                     Button(onClick = { val valid = before.mapNotNull(String::toDoubleOrNull).firstOrNull { it.isFinite() }?.let { heightToMeters(it, beforeUnit) }; if (beforeUnit == null) status = "Confirme a unidade da altura BEFORE" else if (valid == null) status = "Informe uma altura BEFORE válida" else { occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = valid); status = "BEFORE registrado em ${beforeUnit} — pronto para READY"; newStep = 6 } }) { Text("REGISTRAR BEFORE E AVANÇAR") }
                     Text(status)
                 } else if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
@@ -296,8 +298,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Alturas AFTER")
                     after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { after = after + "" }) { Text("+ AFTER") }
-                        Button(enabled = after.size > 1, onClick = { after = after.dropLast(1) }) { Text("−") }
+                        Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ AFTER") }
+                        Button(enabled = after.size > 1, onClick = { afterUndo = afterUndo + listOf(after); after = after.dropLast(1) }) { Text("−") }
+                        Button(enabled = afterUndo.isNotEmpty(), onClick = { after = afterUndo.last(); afterUndo = afterUndo.dropLast(1) }) { Text("DESFAZER") }
                     }
                     Button(onClick = { rawPicker.launch("*/*") }) { Text("IMPORTAR RAW") }
                     Text(if (rawImported) "RAW importado e associado" else "RAW pendente")
@@ -376,6 +379,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     antennaSerial = ""
                     before = listOf("")
                     after = listOf("")
+                    beforeUndo = emptyList()
+                    afterUndo = emptyList()
                     event = ""
                     rawImported = false
                     status = "Nova ocupação criada"
@@ -432,8 +437,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { before = before + "" }) { Text("+ BEFORE") }
-                    Button(enabled = before.size > 1, onClick = { before = before.dropLast(1) }) { Text("−") }
+                    Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }
+                    Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }
+                    Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") }
                 }
                 Button(onClick = {
                     val validBefore = before.mapNotNull { it.toDoubleOrNull() }.firstOrNull { it.isFinite() }?.let { heightToMeters(it, beforeUnit) }
@@ -454,8 +460,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) } } }
                 after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { after = after + "" }) { Text("+ AFTER") }
-                    Button(enabled = after.size > 1, onClick = { after = after.dropLast(1) }) { Text("−") }
+                    Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ AFTER") }
+                    Button(enabled = after.size > 1, onClick = { afterUndo = afterUndo + listOf(after); after = after.dropLast(1) }) { Text("−") }
+                    Button(enabled = afterUndo.isNotEmpty(), onClick = { after = afterUndo.last(); afterUndo = afterUndo.dropLast(1) }) { Text("DESFAZER") }
                 }
                 Button(onClick = {
                     val values = after.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }
