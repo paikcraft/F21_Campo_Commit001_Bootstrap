@@ -57,3 +57,14 @@ data class OccupationArtifactEntity(
     val sha256: String,
     val importedAtEpochMillis: Long,
 )
+
+@Entity(tableName = "occupation_events")
+data class OccupationEventEntity(
+    @PrimaryKey val id: String,
+    val occupationId: String,
+    val atEpochMillis: Long,
+    val category: String,
+    val severity: String,
+    val description: String,
+    val source: String,
+)

@@ -35,3 +35,9 @@ interface OccupationArtifactDao {
     @Upsert suspend fun upsert(artifact: OccupationArtifactEntity)
     @Query("SELECT * FROM occupation_artifacts WHERE occupationId = :occupationId ORDER BY importedAtEpochMillis") suspend fun findByOccupation(occupationId: String): List<OccupationArtifactEntity>
 }
+
+@Dao
+interface OccupationEventDao {
+    @Upsert suspend fun upsert(event: OccupationEventEntity)
+    @Query("SELECT * FROM occupation_events WHERE occupationId = :occupationId ORDER BY atEpochMillis") suspend fun findByOccupation(occupationId: String): List<OccupationEventEntity>
+}

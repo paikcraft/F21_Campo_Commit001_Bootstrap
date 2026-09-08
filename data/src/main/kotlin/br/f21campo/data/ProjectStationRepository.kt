@@ -6,6 +6,7 @@ import br.f21campo.domain.Project
 import br.f21campo.domain.Station
 import br.f21campo.domain.ReferencePoint
 import br.f21campo.domain.Occupation
+import br.f21campo.domain.OccupationEvent
 import java.time.Instant
 
 class ProjectStationRepository(
@@ -14,6 +15,7 @@ class ProjectStationRepository(
     private val referencePointDao: ReferencePointDao? = null,
     private val occupationDao: OccupationDao? = null,
     private val artifactDao: OccupationArtifactDao? = null,
+    private val eventDao: OccupationEventDao? = null,
 ) {
     suspend fun save(project: Project): DomainResult<Unit> {
         projectDao.upsert(project.toEntity())
@@ -45,6 +47,12 @@ class ProjectStationRepository(
     suspend fun saveRawArtifact(occupationId: EntityId, path: String, sizeBytes: Long, sha256: String): DomainResult<Unit> {
         val dao = artifactDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("artifact", "DAO not configured"))
         dao.upsert(OccupationArtifactEntity(EntityId.new().value, occupationId.value, "RAW_RECEIVER", path, sizeBytes, sha256, Instant.now().toEpochMilli()))
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun save(event: OccupationEvent): DomainResult<Unit> {
+        val dao = eventDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("event", "DAO not configured"))
+        dao.upsert(OccupationEventEntity(event.id.value, event.occupationId.value, event.at.toEpochMilli(), event.category.name, event.severity.name, event.description, event.source.name))
         return DomainResult.Success(Unit)
     }
 }

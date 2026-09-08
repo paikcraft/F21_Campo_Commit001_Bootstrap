@@ -45,6 +45,9 @@ import br.f21campo.domain.HeightType
 import br.f21campo.domain.DomainResult
 import br.f21campo.domain.ReferencePoint
 import br.f21campo.domain.ReferencePointType
+import br.f21campo.domain.OccupationEvent
+import br.f21campo.domain.OccupationEventCategory
+import br.f21campo.domain.EventSeverity
 import java.time.Instant
 import java.io.File
 import kotlinx.coroutines.launch
@@ -59,9 +62,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7)
             .build()
-        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao())) }
+        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao())) }
     }
 }
 
@@ -208,7 +211,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }.onSuccess { status = "Seis alturas registradas" }
                 }) { Text("Registrar alturas informadas") }
                 OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
-                Button(onClick = { if (event.isNotBlank()) status = "Evento registrado: $event" }) { Text("Registrar evento") }
+                Button(onClick = {
+                    if (event.isNotBlank()) {
+                        scope.launch {
+                            repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), OccupationEventCategory.NOTE, EventSeverity.INFO, event.trim()))
+                            status = "Evento registrado: $event"
+                            event = ""
+                        }
+                    }
+                }) { Text("Registrar evento") }
                 Button(onClick = { rawPicker.launch("*/*") }) { Text("Importar arquivo bruto") }
                 }
             }

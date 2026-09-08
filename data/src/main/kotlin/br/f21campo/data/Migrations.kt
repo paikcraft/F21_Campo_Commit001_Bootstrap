@@ -34,4 +34,10 @@ object Migrations {
             database.execSQL("CREATE INDEX IF NOT EXISTS index_occupation_artifacts_occupationId ON occupation_artifacts(occupationId)")
         }
     }
+    val V6_TO_V7 = object : Migration(6, 7) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS occupation_events (id TEXT NOT NULL PRIMARY KEY, occupationId TEXT NOT NULL, atEpochMillis INTEGER NOT NULL, category TEXT NOT NULL, severity TEXT NOT NULL, description TEXT NOT NULL, source TEXT NOT NULL)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_occupation_events_occupationId ON occupation_events(occupationId)")
+        }
+    }
 }
