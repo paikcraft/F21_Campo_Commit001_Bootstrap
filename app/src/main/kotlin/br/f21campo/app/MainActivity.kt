@@ -110,6 +110,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
         }
     }
     LaunchedEffect(occupation) { repository.save(occupation) }
+    LaunchedEffect(before) {
+        val firstValidBefore = before.mapNotNull { it.toDoubleOrNull() }.firstOrNull { it.isFinite() }
+        if (firstValidBefore != null && occupation.beforeHeightMeters != firstValidBefore) {
+            occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = firstValidBefore)
+        }
+    }
     LaunchedEffect(occupation.state, occupation.confirmedStart) {
         while (occupation.state == OccupationState.ACTIVE) {
             nowEpochMillis = System.currentTimeMillis()
