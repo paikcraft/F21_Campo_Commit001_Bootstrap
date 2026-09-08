@@ -20,3 +20,13 @@ data class StationEntity(
     val createdAtEpochMillis: Long,
     val archivedAtEpochMillis: Long?,
 )
+
+@Entity(tableName = "reference_points")
+data class ReferencePointEntity(
+    @PrimaryKey val id: String,
+    val stationId: String,
+    val type: String,
+    val code: String,
+    val description: String?,
+    val observation: String?,
+)

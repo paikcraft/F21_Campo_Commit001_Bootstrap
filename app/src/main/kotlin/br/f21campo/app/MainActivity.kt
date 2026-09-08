@@ -26,6 +26,7 @@ import br.f21campo.files.RawFileStore
 import androidx.room.Room
 import br.f21campo.data.F21Database
 import br.f21campo.data.ProjectStationRepository
+import br.f21campo.data.Migrations
 import br.f21campo.domain.EntityId
 import br.f21campo.domain.Station
 import br.f21campo.domain.Occupation
@@ -52,7 +53,9 @@ import androidx.compose.ui.unit.dp
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db").build()
+        val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
+            .addMigrations(Migrations.V1_TO_V2)
+            .build()
         setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao())) }
     }
 }

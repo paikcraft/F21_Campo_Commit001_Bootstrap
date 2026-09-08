@@ -15,3 +15,10 @@ interface StationDao {
     @Upsert suspend fun upsert(station: StationEntity)
     @Query("SELECT * FROM stations WHERE id = :id") suspend fun findById(id: String): StationEntity?
 }
+
+@Dao
+interface ReferencePointDao {
+    @Upsert suspend fun upsert(referencePoint: ReferencePointEntity)
+    @Query("SELECT * FROM reference_points WHERE id = :id") suspend fun findById(id: String): ReferencePointEntity?
+    @Query("SELECT * FROM reference_points WHERE stationId = :stationId ORDER BY code") suspend fun findByStation(stationId: String): List<ReferencePointEntity>
+}
