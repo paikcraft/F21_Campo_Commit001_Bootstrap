@@ -1,5 +1,5 @@
 package br.f21campo.data
 
 object DatabaseMigrations {
-    const val VERSION: Int = 11
+    const val VERSION: Int = 12
 }

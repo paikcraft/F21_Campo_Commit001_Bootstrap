@@ -67,4 +67,10 @@ object Migrations {
             database.execSQL("ALTER TABLE occupations ADD COLUMN antennaSerial TEXT")
         }
     }
+    val V11_TO_V12 = object : Migration(11, 12) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE occupations ADD COLUMN receiverManufacturer TEXT")
+            database.execSQL("ALTER TABLE occupations ADD COLUMN antennaManufacturer TEXT")
+        }
+    }
 }

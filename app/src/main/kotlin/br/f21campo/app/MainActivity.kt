@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10, Migrations.V10_TO_V11)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10, Migrations.V10_TO_V11, Migrations.V11_TO_V12)
             .build()
         setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao(), database.heightMeasurementDao())) }
     }
@@ -81,6 +81,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var occupation by remember { mutableStateOf(Occupation(EntityId.new(), EntityId.new(), EntityId.new())) }
     var receiverModel by remember { mutableStateOf("") }
     var antennaModel by remember { mutableStateOf("") }
+    var receiverManufacturer by remember { mutableStateOf("") }
+    var antennaManufacturer by remember { mutableStateOf("") }
     var receiverSerial by remember { mutableStateOf("") }
     var antennaSerial by remember { mutableStateOf("") }
     var before by remember { mutableStateOf(listOf("")) }
@@ -199,12 +201,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     status = "Nova ocupação criada"
                 }) { Text("Nova ocupação") }
                 OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
+                OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante do receptor") })
                 OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Nº de série do receptor") })
                 OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo da antena") })
+                OutlinedTextField(antennaManufacturer, { antennaManufacturer = it }, label = { Text("Fabricante da antena") })
                 OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Nº de série da antena") })
                 Button(onClick = {
-                    val receiver = Receiver(EntityId.new(), model = receiverModel.ifBlank { "manual" }, serialNumber = receiverSerial.ifBlank { null })
-                    val antenna = Antenna(EntityId.new(), model = antennaModel.ifBlank { "manual" }, serialNumber = antennaSerial.ifBlank { null })
+                    val receiver = Receiver(EntityId.new(), manufacturer = receiverManufacturer.ifBlank { null }, model = receiverModel.ifBlank { "manual" }, serialNumber = receiverSerial.ifBlank { null })
+                    val antenna = Antenna(EntityId.new(), manufacturer = antennaManufacturer.ifBlank { null }, model = antennaModel.ifBlank { "manual" }, serialNumber = antennaSerial.ifBlank { null })
                     val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado" }
                 }) { Text("Associar receptor e antena") }
