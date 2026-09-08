@@ -219,6 +219,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val result = OccupationStateMachine.validate(occupation)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio validado" }
                 }) { Text("VALIDAR RASTREIO") }
+                if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
+                    Text("Resumo do rastreio")
+                    Text("Início: ${occupation.confirmedStart ?: "não registrado"}")
+                    Text("Fim: ${occupation.confirmedStop ?: "não registrado"}")
+                    val totalSeconds = if (occupation.confirmedStart != null && occupation.confirmedStop != null) (occupation.confirmedStop!!.epochSecond - occupation.confirmedStart!!.epochSecond).coerceAtLeast(0) else null
+                    Text("Duração real: ${totalSeconds?.let { "${it / 60}m ${it % 60}s" } ?: "em aberto"}")
+                    Text("Tempo planejado: ${occupation.plannedDurationSeconds?.let { "${it / 60} min" } ?: "indefinido"}")
+                }
                 Text("Alturas BEFORE")
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
