@@ -92,6 +92,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
     var showHome by remember { mutableStateOf(true) }
+    var route by remember { mutableStateOf("HOME") }
     var rawImported by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -129,13 +130,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                if (showHome) {
+                if (route == "HOME") {
                     Spacer(Modifier.height(24.dp))
                     Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
                     Text("Versão ${BuildConfig.VERSION_NAME}")
                     Text("Modo: ${BuildConfig.BUILD_MODE}")
                     Spacer(Modifier.height(24.dp))
-                    Button(onClick = { showHome = false }) { Text("Novo rastreio") }
+                    Button(onClick = { route = "NEW"; showHome = false; status = "Etapa 1/7 — Projeto" }) { Text("NOVO RASTREIO") }
                     Button(onClick = {
                         scope.launch {
                             val pending = repository.findIncompleteOccupations().firstOrNull()
@@ -143,18 +144,46 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 occupation = pending
                                 rawImported = repository.hasRawArtifact(pending.id)
                                 status = "Rastreio recuperado: ${pending.state}"
-                                showHome = false
+                                route = "NEW"; showHome = false
                             } else {
                                 status = "Nenhum rastreio incompleto encontrado"
                             }
                         }
                     }) { Text("Continuar rastreio") }
-                    Button(onClick = { showHome = false; status = "Projetos — seleção em preparação" }) { Text("Projetos") }
-                    Button(onClick = { showHome = false; status = "Banco de Estações" }) { Text("Banco de Estações") }
-                    Button(onClick = { status = "Configurações — em preparação" }) { Text("Configurações") }
-                    Button(onClick = { status = "F-21 Campo ${BuildConfig.VERSION_NAME}" }) { Text("Sobre") }
+                    Button(onClick = { route = "PROJECTS"; showHome = false }) { Text("PROJETOS") }
+                    Button(onClick = { route = "STATIONS"; showHome = false }) { Text("BANCO DE ESTAÇÕES") }
+                    Button(onClick = { route = "SETTINGS"; showHome = false }) { Text("CONFIGURAÇÕES") }
+                    Button(onClick = { route = "ABOUT"; showHome = false }) { Text("SOBRE") }
+                } else if (route == "PROJECTS") {
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
+                    Text("PROJETOS", style = MaterialTheme.typography.headlineSmall)
+                    Text("Cadastro do projeto de campo")
+                    OutlinedTextField(name, { name = it }, label = { Text("Nome do projeto/comissão") })
+                    Button(onClick = { scope.launch { repository.save(br.f21campo.domain.Project(EntityId.new(), name, Instant.now())); status = "Projeto salvo" } }) { Text("SALVAR PROJETO") }
+                    Text(status)
+                } else if (route == "STATIONS") {
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
+                    Text("BANCO DE ESTAÇÕES", style = MaterialTheme.typography.headlineSmall)
+                    Text("Estação atual e cadastro persistente")
+                    OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
+                    OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") })
+                    Button(onClick = { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name, locality.ifBlank { null }, null, Instant.now())); status = "Estação salva — ID preservado" } }) { Text("SALVAR ESTAÇÃO") }
+                    Text(status)
+                } else if (route == "SETTINGS") {
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
+                    Text("CONFIGURAÇÕES", style = MaterialTheme.typography.headlineSmall)
+                    Text("Modo: ${BuildConfig.BUILD_MODE}")
+                    Text("O aplicativo funciona offline e registra a origem manual dos equipamentos.")
+                } else if (route == "ABOUT") {
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
+                    Text("SOBRE", style = MaterialTheme.typography.headlineSmall)
+                    Text("F-21 Campo")
+                    Text("Versão ${BuildConfig.VERSION_NAME}")
+                    Text("Fluxo manual de rastreio, persistência e proveniência.")
                 } else {
-                Button(onClick = { showHome = true }) { Text("Início") }
+                Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
+                Text(when (occupation.state) { OccupationState.ACTIVE -> "RASTREIO ATIVO"; OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED -> "FINALIZAÇÃO DO RASTREIO"; else -> "NOVO RASTREIO" }, style = MaterialTheme.typography.headlineSmall)
+                Text(if (occupation.state == OccupationState.ACTIVE) "Etapa 6/7 — Rastreio" else if (occupation.state == OccupationState.STOPPED) "Etapa 7/7 — Finalização" else "Etapa 1/7 — Preparação")
                 Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
                 Text("Versão ${BuildConfig.VERSION_NAME}")
                 Text("Modo: ${BuildConfig.BUILD_MODE}")
@@ -227,7 +256,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("Associar receptor e antena") }
                 Button(enabled = occupation.state == OccupationState.DRAFT, onClick = {
                     val result = OccupationStateMachine.ready(occupation)
-                    if (result is DomainResult.Success) occupation = result.value
+                    if (result is DomainResult.Success) { occupation = result.value; status = "READY confirmado — INICIAR está disponível" }
                     else status = when (val error = (result as DomainResult.Failure).error) {
                         is br.f21campo.domain.DomainError.InvalidValue -> "READY bloqueado: ${error.reason}"
                         else -> "READY bloqueado: verifique os dados da ocupação"
@@ -236,8 +265,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 if (occupation.state == OccupationState.DRAFT) {
                     Text("Para READY: referência ${if (occupation.referencePointId != null) "OK" else "pendente"} · altura BEFORE ${if (occupation.hasBeforeHeight) "OK" else "pendente"}")
                 }
-                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("INICIAR") }
-                Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
+                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" } }) { Text("INICIAR") }
+                Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
                 Button(enabled = occupation.state == OccupationState.STOPPED && rawImported, onClick = {
                     val result = OccupationStateMachine.collect(occupation, hasRawEvidence = rawImported)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Coleta finalizada — pronta para resumo" }
