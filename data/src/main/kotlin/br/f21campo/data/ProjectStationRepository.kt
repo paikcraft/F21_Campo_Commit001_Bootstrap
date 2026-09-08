@@ -5,11 +5,13 @@ import br.f21campo.domain.EntityId
 import br.f21campo.domain.Project
 import br.f21campo.domain.Station
 import br.f21campo.domain.ReferencePoint
+import br.f21campo.domain.Occupation
 
 class ProjectStationRepository(
     private val projectDao: ProjectDao,
     private val stationDao: StationDao,
     private val referencePointDao: ReferencePointDao? = null,
+    private val occupationDao: OccupationDao? = null,
 ) {
     suspend fun save(project: Project): DomainResult<Unit> {
         projectDao.upsert(project.toEntity())
@@ -29,4 +31,12 @@ class ProjectStationRepository(
         dao.upsert(ReferencePointEntity(referencePoint.id.value, referencePoint.stationId.value, referencePoint.type.name, referencePoint.code, referencePoint.description, referencePoint.observation))
         return DomainResult.Success(Unit)
     }
+
+    suspend fun save(occupation: Occupation): DomainResult<Unit> {
+        val dao = occupationDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("occupation", "DAO not configured"))
+        dao.upsert(occupation.toEntity())
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun findIncompleteOccupations(): List<Occupation> = occupationDao?.findIncomplete()?.map(OccupationEntity::toDomain).orEmpty()
 }

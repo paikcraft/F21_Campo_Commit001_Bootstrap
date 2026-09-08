@@ -30,3 +30,16 @@ data class ReferencePointEntity(
     val description: String?,
     val observation: String?,
 )
+
+@Entity(tableName = "occupations")
+data class OccupationEntity(
+    @PrimaryKey val id: String,
+    val projectId: String,
+    val stationId: String,
+    val state: String,
+    val plannedStartEpochMillis: Long?,
+    val confirmedStartEpochMillis: Long?,
+    val confirmedStopEpochMillis: Long?,
+    val receiverModel: String?,
+    val antennaModel: String?,
+)

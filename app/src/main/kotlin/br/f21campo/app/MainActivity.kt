@@ -57,9 +57,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3)
             .build()
-        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao())) }
+        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao())) }
     }
 }
 
@@ -88,6 +88,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         }
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(occupation) { repository.save(occupation) }
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -102,7 +103,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Modo: ${BuildConfig.BUILD_MODE}")
                     Spacer(Modifier.height(24.dp))
                     Button(onClick = { showHome = false }) { Text("Novo rastreio") }
-                    Button(onClick = { showHome = false }) { Text("Continuar rastreio") }
+                    Button(onClick = {
+                        scope.launch {
+                            val pending = repository.findIncompleteOccupations().firstOrNull()
+                            if (pending != null) {
+                                occupation = pending
+                                status = "Rastreio recuperado: ${pending.state}"
+                                showHome = false
+                            } else {
+                                status = "Nenhum rastreio incompleto encontrado"
+                            }
+                        }
+                    }) { Text("Continuar rastreio") }
                     Button(onClick = { showHome = false; status = "Projetos — seleção em preparação" }) { Text("Projetos") }
                     Button(onClick = { showHome = false; status = "Banco de Estações" }) { Text("Banco de Estações") }
                     Button(onClick = { status = "Configurações — em preparação" }) { Text("Configurações") }
