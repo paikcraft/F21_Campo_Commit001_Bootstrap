@@ -304,6 +304,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Button(enabled = occupation.state == OccupationState.STOPPED && rawImported, onClick = { val result = OccupationStateMachine.collect(occupation, true); if (result is DomainResult.Success) occupation = result.value }) { Text("FINALIZAR COLETA") }
                     Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("VALIDAR RASTREIO") }
                     Text("Resumo: início ${occupation.confirmedStart ?: "—"} · fim ${occupation.confirmedStop ?: "—"}")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
+                        Button(onClick = { occupation = Occupation(EntityId.new(), occupation.projectId, occupation.stationId); before = listOf(""); after = listOf(""); beforeUnit = null; afterUnit = null; rawImported = false; newStep = 1; route = "NEW"; status = "Novo rastreio" }) { Text("NOVO RASTREIO") }
+                    }
                 } else {
                 Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
                 Text(when (occupation.state) { OccupationState.ACTIVE -> "RASTREIO ATIVO"; OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED -> "FINALIZAÇÃO DO RASTREIO"; else -> "NOVO RASTREIO" }, style = MaterialTheme.typography.headlineSmall)
