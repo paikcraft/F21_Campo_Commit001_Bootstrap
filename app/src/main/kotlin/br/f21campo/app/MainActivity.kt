@@ -184,6 +184,17 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
                 Text(when (occupation.state) { OccupationState.ACTIVE -> "RASTREIO ATIVO"; OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED -> "FINALIZAÇÃO DO RASTREIO"; else -> "NOVO RASTREIO" }, style = MaterialTheme.typography.headlineSmall)
                 Text(if (occupation.state == OccupationState.ACTIVE) "Etapa 6/7 — Rastreio" else if (occupation.state == OccupationState.STOPPED) "Etapa 7/7 — Finalização" else "Etapa 1/7 — Preparação")
+                if (occupation.state == OccupationState.ACTIVE) {
+                    Text("REFERÊNCIA: ${referenceCode.ifBlank { "selecionada" }}")
+                    Text("STATUS: RASTREIO ATIVO")
+                    val activeElapsed = occupation.confirmedStart?.let { ((nowEpochMillis - it.toEpochMilli()).coerceAtLeast(0) / 1000) }
+                    Text("CRONÔMETRO: ${activeElapsed?.let { "${it / 60}m ${it % 60}s" } ?: "aguardando"}")
+                    Text("Receptor: ${occupation.equipment?.receiver?.model ?: receiverModel.ifBlank { "manual" }}")
+                    Text("Antena: ${occupation.equipment?.antenna?.model ?: antennaModel.ifBlank { "manual" }}")
+                    OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
+                    Button(onClick = { if (event.isNotBlank()) scope.launch { repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), OccupationEventCategory.NOTE, EventSeverity.INFO, event.trim())); event = ""; status = "Evento registrado" } }) { Text("REGISTRAR EVENTO") }
+                    Button(onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — finalização" } }) { Text("PARAR RASTREIO") }
+                } else {
                 Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
                 Text("Versão ${BuildConfig.VERSION_NAME}")
                 Text("Modo: ${BuildConfig.BUILD_MODE}")
@@ -330,6 +341,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                 }) { Text("Registrar evento") }
                 Button(onClick = { rawPicker.launch("*/*") }) { Text("Importar arquivo bruto") }
+                }
                 }
             }
         }
