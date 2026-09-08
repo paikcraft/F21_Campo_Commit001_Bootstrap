@@ -100,6 +100,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("Salvar estação") }
                 HorizontalDivider()
                 Text("Ocupação: ${occupation.state}")
+                Button(onClick = {
+                    occupation = Occupation(EntityId.new(), savedId ?: EntityId.new(), EntityId.new())
+                    receiverModel = ""
+                    antennaModel = ""
+                    before = listOf("", "", "")
+                    after = listOf("", "", "")
+                    event = ""
+                    status = "Nova ocupação criada"
+                }) { Text("Nova ocupação") }
                 OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
                 OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo da antena") })
                 Button(onClick = {
@@ -108,9 +117,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado" }
                 }) { Text("Associar receptor e antena") }
-                Button(onClick = { val result = OccupationStateMachine.ready(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("READY") }
-                Button(onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("INICIAR") }
-                Button(onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
+                Button(enabled = occupation.state == OccupationState.DRAFT, onClick = { val result = OccupationStateMachine.ready(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("READY") }
+                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("INICIAR") }
+                Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
                 Text("Alturas BEFORE")
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Text("Alturas AFTER")
