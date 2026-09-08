@@ -134,6 +134,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             val pending = repository.findIncompleteOccupations().firstOrNull()
                             if (pending != null) {
                                 occupation = pending
+                                rawImported = repository.hasRawArtifact(pending.id)
                                 status = "Rastreio recuperado: ${pending.state}"
                                 showHome = false
                             } else {

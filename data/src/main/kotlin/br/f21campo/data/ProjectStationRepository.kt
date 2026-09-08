@@ -52,6 +52,8 @@ class ProjectStationRepository(
         return DomainResult.Success(Unit)
     }
 
+    suspend fun hasRawArtifact(occupationId: EntityId): Boolean = artifactDao?.findByOccupation(occupationId.value)?.any { it.role == "RAW_RECEIVER" } == true
+
     suspend fun save(event: OccupationEvent): DomainResult<Unit> {
         val dao = eventDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("event", "DAO not configured"))
         dao.upsert(OccupationEventEntity(event.id.value, event.occupationId.value, event.at.toEpochMilli(), event.category.name, event.severity.name, event.description, event.source.name))
