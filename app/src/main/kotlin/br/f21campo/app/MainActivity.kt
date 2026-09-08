@@ -12,6 +12,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +24,17 @@ import br.f21campo.data.F21Database
 import br.f21campo.data.ProjectStationRepository
 import br.f21campo.domain.EntityId
 import br.f21campo.domain.Station
+import br.f21campo.domain.Occupation
+import br.f21campo.domain.OccupationState
+import br.f21campo.domain.OccupationStateMachine
+import br.f21campo.domain.Receiver
+import br.f21campo.domain.Antenna
+import br.f21campo.domain.ManualEquipment
+import br.f21campo.domain.HeightObservation
+import br.f21campo.domain.HeightPhase
+import br.f21campo.domain.HeightSet
+import br.f21campo.domain.HeightType
+import br.f21campo.domain.DomainResult
 import java.time.Instant
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -43,6 +55,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var locality by remember { mutableStateOf("") }
     var savedId by remember { mutableStateOf<EntityId?>(null) }
     var status by remember { mutableStateOf("Banco de Estações") }
+    var occupation by remember { mutableStateOf(Occupation(EntityId.new(), EntityId.new(), EntityId.new())) }
+    var receiverModel by remember { mutableStateOf("") }
+    var antennaModel by remember { mutableStateOf("") }
+    var before by remember { mutableStateOf(listOf("", "", "")) }
+    var after by remember { mutableStateOf(listOf("", "", "")) }
+    var event by remember { mutableStateOf("") }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -64,6 +82,32 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         status = "Estação salva — ID preservado"
                     }
                 }) { Text("Salvar estação") }
+                HorizontalDivider()
+                Text("Ocupação: ${occupation.state}")
+                OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
+                OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo da antena") })
+                Button(onClick = {
+                    val receiver = Receiver(EntityId.new(), model = receiverModel.ifBlank { "manual" })
+                    val antenna = Antenna(EntityId.new(), model = antennaModel.ifBlank { "manual" })
+                    val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna)
+                    if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado" }
+                }) { Text("Associar receptor e antena") }
+                Button(onClick = { val result = OccupationStateMachine.ready(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("READY") }
+                Button(onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("INICIAR") }
+                Button(onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
+                Text("Alturas BEFORE")
+                before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
+                Text("Alturas AFTER")
+                after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
+                Button(onClick = {
+                    runCatching {
+                        val b = before.map(String::toDouble)
+                        val a = after.map(String::toDouble)
+                        HeightSet(HeightObservation(HeightPhase.BEFORE, b[0], b[1], b[2], HeightType.VERTICAL), HeightObservation(HeightPhase.AFTER, a[0], a[1], a[2], HeightType.VERTICAL))
+                    }.onSuccess { status = "Seis alturas registradas" }
+                }) { Text("Registrar seis alturas") }
+                OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
+                Button(onClick = { if (event.isNotBlank()) status = "Evento registrado: $event" }) { Text("Registrar evento") }
             }
         }
     }
