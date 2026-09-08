@@ -44,6 +44,9 @@ import java.io.File
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
@@ -81,7 +84,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
+                modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()).imePadding(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
