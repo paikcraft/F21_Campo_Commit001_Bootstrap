@@ -180,6 +180,22 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("F-21 Campo")
                     Text("Versão ${BuildConfig.VERSION_NAME}")
                     Text("Fluxo manual de rastreio, persistência e proveniência.")
+                } else if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
+                    Text("FINALIZAÇÃO", style = MaterialTheme.typography.headlineSmall)
+                    Text("Referência: ${referenceCode.ifBlank { "ocupação recuperada" }}")
+                    Text("Status: ${occupation.state}")
+                    Text("Registre as alturas AFTER e importe o RAW antes de finalizar.")
+                    Text("Alturas AFTER")
+                    after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { after = after + "" }) { Text("+ AFTER") }
+                        Button(enabled = after.size > 1, onClick = { after = after.dropLast(1) }) { Text("−") }
+                    }
+                    Button(onClick = { rawPicker.launch("*/*") }) { Text("IMPORTAR RAW") }
+                    Text(if (rawImported) "RAW importado e associado" else "RAW pendente")
+                    Button(enabled = occupation.state == OccupationState.STOPPED && rawImported, onClick = { val result = OccupationStateMachine.collect(occupation, true); if (result is DomainResult.Success) occupation = result.value }) { Text("FINALIZAR COLETA") }
+                    Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("VALIDAR RASTREIO") }
+                    Text("Resumo: início ${occupation.confirmedStart ?: "—"} · fim ${occupation.confirmedStop ?: "—"}")
                 } else {
                 Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
                 Text(when (occupation.state) { OccupationState.ACTIVE -> "RASTREIO ATIVO"; OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED -> "FINALIZAÇÃO DO RASTREIO"; else -> "NOVO RASTREIO" }, style = MaterialTheme.typography.headlineSmall)
