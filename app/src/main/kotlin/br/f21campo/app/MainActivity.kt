@@ -93,6 +93,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var antennaSerial by remember { mutableStateOf("") }
     var before by remember { mutableStateOf(listOf("")) }
     var after by remember { mutableStateOf(listOf("")) }
+    var beforeUnit by remember { mutableStateOf<String?>(null) }
+    var afterUnit by remember { mutableStateOf<String?>(null) }
     var event by remember { mutableStateOf("") }
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
@@ -257,9 +259,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
                     Text("ETAPA 5/7 · ALTURAS BEFORE", style = MaterialTheme.typography.titleMedium)
                     Text("Registre pelo menos uma leitura antes de iniciar.")
+                    Text("UNIDADE DA ALTURA", style = MaterialTheme.typography.labelLarge)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
+                    Text("Selecionada: ${beforeUnit ?: "nenhuma — selecione uma unidade"}")
                     before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { before = before.dropLast(1) }) { Text("−") } }
-                    Button(onClick = { val valid = before.mapNotNull(String::toDoubleOrNull).firstOrNull { it.isFinite() }; if (valid == null) status = "Informe uma altura BEFORE válida" else { occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = valid); status = "BEFORE registrado — pronto para READY"; newStep = 6 } }) { Text("REGISTRAR BEFORE E AVANÇAR") }
+                    Button(onClick = { val valid = before.mapNotNull(String::toDoubleOrNull).firstOrNull { it.isFinite() }; if (beforeUnit == null) status = "Confirme a unidade da altura BEFORE" else if (valid == null) status = "Informe uma altura BEFORE válida" else { occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = valid); status = "BEFORE registrado em ${beforeUnit} — pronto para READY"; newStep = 6 } }) { Text("REGISTRAR BEFORE E AVANÇAR") }
                     Text(status)
                 } else if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
                     Text("FINALIZAÇÃO", style = MaterialTheme.typography.headlineSmall)
@@ -397,6 +402,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     if (beforeValues.isNotEmpty() && afterValues.isNotEmpty()) Text("Delta das médias: ${"%.4f".format(afterValues.average() - beforeValues.average())} m")
                 }
                 Text("Alturas BEFORE")
+                Text("Unidade BEFORE: ${beforeUnit ?: "não selecionada"}")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { before = before + "" }) { Text("+ BEFORE") }
@@ -404,7 +411,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }
                 Button(onClick = {
                     val validBefore = before.mapNotNull { it.toDoubleOrNull() }.firstOrNull { it.isFinite() }
-                    if (validBefore != null) {
+                    if (beforeUnit == null) {
+                        status = "Confirme a unidade da altura BEFORE"
+                    } else if (validBefore != null) {
                         occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = validBefore)
                         scope.launch {
                             before.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }.forEach { value -> repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.BEFORE, value, HeightType.VERTICAL, Instant.now())) }
@@ -415,6 +424,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                 }) { Text("Registrar altura BEFORE") }
                 Text("Alturas AFTER")
+                Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) } } }
                 after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { after = after + "" }) { Text("+ AFTER") }
@@ -422,7 +433,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }
                 Button(onClick = {
                     val values = after.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }
-                    if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida" else scope.launch {
+                    if (afterUnit == null) status = "Confirme a unidade da altura AFTER" else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida" else scope.launch {
                         values.forEach { value -> repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.AFTER, value, HeightType.VERTICAL, Instant.now())) }
                         status = "${values.size} altura(s) AFTER registrada(s)"
                     }
