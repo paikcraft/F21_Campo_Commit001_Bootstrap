@@ -93,6 +93,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
     var showHome by remember { mutableStateOf(true) }
     var route by remember { mutableStateOf("HOME") }
+    var newStep by remember { mutableStateOf(1) }
     var rawImported by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -136,7 +137,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Versão ${BuildConfig.VERSION_NAME}")
                     Text("Modo: ${BuildConfig.BUILD_MODE}")
                     Spacer(Modifier.height(24.dp))
-                    Button(onClick = { route = "NEW"; showHome = false; status = "Etapa 1/7 — Projeto" }) { Text("NOVO RASTREIO") }
+                    Button(onClick = { route = "NEW"; newStep = 1; showHome = false; status = "Etapa 1/7 — Projeto" }) { Text("NOVO RASTREIO") }
                     Button(onClick = {
                         scope.launch {
                             val pending = repository.findIncompleteOccupations().firstOrNull()
@@ -144,7 +145,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 occupation = pending
                                 rawImported = repository.hasRawArtifact(pending.id)
                                 status = "Rastreio recuperado: ${pending.state}"
-                                route = "NEW"; showHome = false
+                                route = "NEW"; newStep = 1; showHome = false
                             } else {
                                 status = "Nenhum rastreio incompleto encontrado"
                             }
@@ -180,6 +181,52 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("F-21 Campo")
                     Text("Versão ${BuildConfig.VERSION_NAME}")
                     Text("Fluxo manual de rastreio, persistência e proveniência.")
+                } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 1) {
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
+                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
+                    Text("ETAPA 1/7 · PROJETO", style = MaterialTheme.typography.titleMedium)
+                    Text("Identifique a comissão ou trabalho de campo.")
+                    OutlinedTextField(name, { name = it }, label = { Text("Nome do projeto/comissão") })
+                    Button(onClick = { if (name.isBlank()) status = "Informe o nome do projeto" else { status = "Projeto selecionado"; newStep = 2 } }) { Text("AVANÇAR") }
+                    Text(status)
+                } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 2) {
+                    Button(onClick = { newStep = 1 }) { Text("VOLTAR") }
+                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
+                    Text("ETAPA 2/7 · ESTAÇÃO", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
+                    OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") })
+                    Button(onClick = { if (name.isBlank()) status = "Informe o nome da estação" else { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name.trim(), locality.ifBlank { null }, null, Instant.now())); status = "Estação salva — ID preservado"; newStep = 3 } } }) { Text("SALVAR E AVANÇAR") }
+                    Text(status)
+                } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 3) {
+                    Button(onClick = { newStep = 2 }) { Text("VOLTAR") }
+                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
+                    Text("ETAPA 3/7 · REFERÊNCIA", style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { ReferencePointType.entries.forEach { type -> Button(onClick = { referenceType = type }, enabled = referenceType != type) { Text(type.name) } } }
+                    OutlinedTextField(referenceCode, { referenceCode = it }, label = { Text("Código da referência") })
+                    Button(onClick = { val stationId = savedId; if (stationId == null || referenceCode.isBlank()) status = "Informe estação e código da referência" else { val point = ReferencePoint(EntityId.new(), stationId, referenceType, referenceCode.trim()); scope.launch { repository.save(point); occupation = occupation.copy(stationId = stationId, referencePointId = point.id); status = "Referência ${point.type}: ${point.code} registrada"; newStep = 4 } } }) { Text("SALVAR E AVANÇAR") }
+                    Text(status)
+                } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 4) {
+                    Button(onClick = { newStep = 3 }) { Text("VOLTAR") }
+                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
+                    Text("ETAPA 4/7 · EQUIPAMENTO", style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
+                    OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante do receptor") })
+                    OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Nº de série do receptor") })
+                    OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo da antena") })
+                    OutlinedTextField(antennaManufacturer, { antennaManufacturer = it }, label = { Text("Fabricante da antena") })
+                    OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Nº de série da antena") })
+                    Button(onClick = { val receiver = Receiver(EntityId.new(), receiverManufacturer.ifBlank { null }, receiverModel.ifBlank { "manual" }, receiverSerial.ifBlank { null }); val antenna = Antenna(EntityId.new(), antennaManufacturer.ifBlank { null }, antennaModel.ifBlank { "manual" }, antennaSerial.ifBlank { null }); val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna); if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado"; newStep = 5 } }) { Text("ASSOCIAR E AVANÇAR") }
+                    Text("Origem: informado pelo operador")
+                    Text(status)
+                } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 5) {
+                    Button(onClick = { newStep = 4 }) { Text("VOLTAR") }
+                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
+                    Text("ETAPA 5/7 · ALTURAS BEFORE", style = MaterialTheme.typography.titleMedium)
+                    Text("Registre pelo menos uma leitura antes de iniciar.")
+                    before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { before = before.dropLast(1) }) { Text("−") } }
+                    Button(onClick = { val valid = before.mapNotNull(String::toDoubleOrNull).firstOrNull { it.isFinite() }; if (valid == null) status = "Informe uma altura BEFORE válida" else { occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = valid); status = "BEFORE registrado — pronto para READY"; newStep = 6 } }) { Text("REGISTRAR BEFORE E AVANÇAR") }
+                    Text(status)
                 } else if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
                     Text("FINALIZAÇÃO", style = MaterialTheme.typography.headlineSmall)
                     Text("Referência: ${referenceCode.ifBlank { "ocupação recuperada" }}")
