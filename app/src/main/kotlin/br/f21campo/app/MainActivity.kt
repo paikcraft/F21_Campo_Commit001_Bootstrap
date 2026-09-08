@@ -146,32 +146,41 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (route == "HOME") {
-                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxSize().padding(bottom = 8.dp)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("F-21 Campo", color = Color.White, style = MaterialTheme.typography.headlineMedium)
                             Text("Aquisição e rastreio de referências", color = Color.White)
                             Text("Versão ${BuildConfig.VERSION_NAME} · funcionamento offline", color = Color(0xFFD5EAF5))
                         }
                     }
-                    Text("INÍCIO", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
-                    Button(onClick = { route = "NEW"; newStep = 1; showHome = false; status = "Etapa 1/7 — Projeto" }, modifier = Modifier.fillMaxWidth()) { Text("NOVO RASTREIO") }
-                    Button(onClick = {
-                        scope.launch {
-                            val pending = repository.findIncompleteOccupations().firstOrNull()
-                            if (pending != null) {
-                                occupation = pending
-                                rawImported = repository.hasRawArtifact(pending.id)
-                                status = "Rastreio recuperado: ${pending.state}"
-                                route = "NEW"; newStep = 1; showHome = false
-                            } else {
-                                status = "Nenhum rastreio incompleto encontrado"
-                            }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("INÍCIO", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
+                            Text("Escolha uma operação", color = Color(0xFF52636D))
+                            Button(onClick = { route = "NEW"; newStep = 1; showHome = false; status = "Etapa 1/7 — Projeto" }, modifier = Modifier.fillMaxWidth()) { Text("NOVO RASTREIO") }
+                            Button(onClick = {
+                                scope.launch {
+                                    val pending = repository.findIncompleteOccupations().firstOrNull()
+                                    if (pending != null) { occupation = pending; rawImported = repository.hasRawArtifact(pending.id); status = "Rastreio recuperado: ${pending.state}"; route = "NEW"; newStep = 6; showHome = false }
+                                    else status = "Nenhum rastreio incompleto encontrado"
+                                }
+                            }, modifier = Modifier.fillMaxWidth()) { Text("CONTINUAR RASTREIO") }
                         }
-                    }) { Text("CONTINUAR RASTREIO") }
-                    Button(onClick = { route = "PROJECTS"; showHome = false }) { Text("PROJETOS") }
-                    Button(onClick = { route = "STATIONS"; showHome = false }) { Text("BANCO DE ESTAÇÕES") }
-                    Button(onClick = { route = "SETTINGS"; showHome = false }) { Text("CONFIGURAÇÕES") }
-                    Button(onClick = { route = "ABOUT"; showHome = false }) { Text("SOBRE") }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("DADOS DE CAMPO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Button(onClick = { route = "PROJECTS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("PROJETOS") }
+                            Button(onClick = { route = "STATIONS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("BANCO DE ESTAÇÕES") }
+                        }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("APLICATIVO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Button(onClick = { route = "SETTINGS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAÇÕES") }
+                            Button(onClick = { route = "ABOUT"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("SOBRE") }
+                        }
+                    }
                 } else if (route == "PROJECTS") {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("VOLTAR") }
                     Text("PROJETOS", style = MaterialTheme.typography.headlineSmall)
