@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -16,6 +17,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -130,20 +135,26 @@ private fun StationScreen(repository: ProjectStationRepository) {
         if (route == "PROJECTS") projects = repository.findAllProjects()
         if (route == "STATIONS") stations = repository.findAllStations()
     }
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
+    val fieldBlue = Color(0xFF0B4F71)
+    val fieldBlueDark = Color(0xFF073653)
+    val fieldBackground = Color(0xFFF1F6FA)
+    MaterialTheme(colorScheme = lightColorScheme(primary = fieldBlue, secondary = Color(0xFF176E96), background = fieldBackground, surface = Color.White)) {
+        Surface(modifier = Modifier.fillMaxSize(), color = fieldBackground) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 48.dp).verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (route == "HOME") {
-                    Spacer(Modifier.height(24.dp))
-                    Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
-                    Text("Versão ${BuildConfig.VERSION_NAME}")
-                    Text("Modo: ${BuildConfig.BUILD_MODE}")
-                    Spacer(Modifier.height(24.dp))
-                    Button(onClick = { route = "NEW"; newStep = 1; showHome = false; status = "Etapa 1/7 — Projeto" }) { Text("NOVO RASTREIO") }
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxSize().padding(bottom = 8.dp)) {
+                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("F-21 Campo", color = Color.White, style = MaterialTheme.typography.headlineMedium)
+                            Text("Aquisição e rastreio de referências", color = Color.White)
+                            Text("Versão ${BuildConfig.VERSION_NAME} · funcionamento offline", color = Color(0xFFD5EAF5))
+                        }
+                    }
+                    Text("INÍCIO", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
+                    Button(onClick = { route = "NEW"; newStep = 1; showHome = false; status = "Etapa 1/7 — Projeto" }, modifier = Modifier.fillMaxWidth()) { Text("NOVO RASTREIO") }
                     Button(onClick = {
                         scope.launch {
                             val pending = repository.findIncompleteOccupations().firstOrNull()
@@ -156,7 +167,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 status = "Nenhum rastreio incompleto encontrado"
                             }
                         }
-                    }) { Text("Continuar rastreio") }
+                    }) { Text("CONTINUAR RASTREIO") }
                     Button(onClick = { route = "PROJECTS"; showHome = false }) { Text("PROJETOS") }
                     Button(onClick = { route = "STATIONS"; showHome = false }) { Text("BANCO DE ESTAÇÕES") }
                     Button(onClick = { route = "SETTINGS"; showHome = false }) { Text("CONFIGURAÇÕES") }
