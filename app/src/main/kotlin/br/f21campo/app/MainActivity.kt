@@ -34,7 +34,6 @@ import br.f21campo.domain.Station
 import br.f21campo.domain.Occupation
 import br.f21campo.domain.OccupationState
 import br.f21campo.domain.OccupationStateMachine
-import br.f21campo.domain.ConnectionReadiness
 import br.f21campo.domain.Receiver
 import br.f21campo.domain.Antenna
 import br.f21campo.domain.ManualEquipment
@@ -77,7 +76,6 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var before by remember { mutableStateOf(listOf("", "", "")) }
     var after by remember { mutableStateOf(listOf("", "", "")) }
     var event by remember { mutableStateOf("") }
-    var connection by remember { mutableStateOf(ConnectionReadiness()) }
     var showHome by remember { mutableStateOf(true) }
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -125,7 +123,6 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("Salvar estação") }
                 HorizontalDivider()
                 Text("Ocupação: ${occupation.state}")
-                Text(if (connection.ready) "Conexão: pronta para teste" else "Conexão: preparação manual")
                 Button(onClick = {
                     occupation = Occupation(EntityId.new(), savedId ?: EntityId.new(), EntityId.new())
                     receiverModel = ""
@@ -133,7 +130,6 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     before = listOf("", "", "")
                     after = listOf("", "", "")
                     event = ""
-                    connection = ConnectionReadiness()
                     status = "Nova ocupação criada"
                 }) { Text("Nova ocupação") }
                 OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
@@ -144,14 +140,6 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado" }
                 }) { Text("Associar receptor e antena") }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { connection = connection.copy(receiverIdentified = receiverModel.isNotBlank()) }) { Text("Confirmar receptor") }
-                    Button(onClick = { connection = connection.copy(antennaIdentified = antennaModel.isNotBlank()) }) { Text("Confirmar antena") }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { connection = connection.copy(transportAvailable = true) }) { Text("Transporte disponível") }
-                    Button(onClick = { connection = connection.copy(operatorConfirmed = true) }) { Text("Confirmar teste") }
-                }
                 Button(enabled = occupation.state == OccupationState.DRAFT, onClick = { val result = OccupationStateMachine.ready(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("READY") }
                 Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("INICIAR") }
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
