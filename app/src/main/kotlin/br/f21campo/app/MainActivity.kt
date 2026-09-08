@@ -59,9 +59,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6)
             .build()
-        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao())) }
+        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao())) }
     }
 }
 
@@ -82,16 +82,19 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
     var showHome by remember { mutableStateOf(true) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             val imported = File.createTempFile("import-", ".part", context.cacheDir)
             context.contentResolver.openInputStream(uri)?.use { input -> imported.outputStream().use { output -> input.copyTo(output) } }
             val stored = rawStore.import(imported)
             imported.delete()
-            status = "Bruto importado: ${stored.sha256.take(12)}…"
+            scope.launch {
+                repository.saveRawArtifact(occupation.id, stored.path.absolutePath, stored.sizeBytes, stored.sha256)
+                status = "Bruto RAW_RECEIVER importado: ${stored.sha256.take(12)}…"
+            }
         }
     }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(occupation) { repository.save(occupation) }
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {

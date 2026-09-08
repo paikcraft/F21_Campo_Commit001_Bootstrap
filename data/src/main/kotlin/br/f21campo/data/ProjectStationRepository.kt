@@ -6,12 +6,15 @@ import br.f21campo.domain.Project
 import br.f21campo.domain.Station
 import br.f21campo.domain.ReferencePoint
 import br.f21campo.domain.Occupation
+import br.f21campo.domain.EntityId
+import java.time.Instant
 
 class ProjectStationRepository(
     private val projectDao: ProjectDao,
     private val stationDao: StationDao,
     private val referencePointDao: ReferencePointDao? = null,
     private val occupationDao: OccupationDao? = null,
+    private val artifactDao: OccupationArtifactDao? = null,
 ) {
     suspend fun save(project: Project): DomainResult<Unit> {
         projectDao.upsert(project.toEntity())
@@ -39,4 +42,10 @@ class ProjectStationRepository(
     }
 
     suspend fun findIncompleteOccupations(): List<Occupation> = occupationDao?.findIncomplete()?.map(OccupationEntity::toDomain).orEmpty()
+
+    suspend fun saveRawArtifact(occupationId: EntityId, path: String, sizeBytes: Long, sha256: String): DomainResult<Unit> {
+        val dao = artifactDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("artifact", "DAO not configured"))
+        dao.upsert(OccupationArtifactEntity(EntityId.new().value, occupationId.value, "RAW_RECEIVER", path, sizeBytes, sha256, Instant.now().toEpochMilli()))
+        return DomainResult.Success(Unit)
+    }
 }

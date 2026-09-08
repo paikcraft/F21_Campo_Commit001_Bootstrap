@@ -28,4 +28,10 @@ object Migrations {
             database.execSQL("ALTER TABLE occupations ADD COLUMN referencePointId TEXT")
         }
     }
+    val V5_TO_V6 = object : Migration(5, 6) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS occupation_artifacts (id TEXT NOT NULL PRIMARY KEY, occupationId TEXT NOT NULL, role TEXT NOT NULL, path TEXT NOT NULL, sizeBytes INTEGER NOT NULL, sha256 TEXT NOT NULL, importedAtEpochMillis INTEGER NOT NULL)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_occupation_artifacts_occupationId ON occupation_artifacts(occupationId)")
+        }
+    }
 }

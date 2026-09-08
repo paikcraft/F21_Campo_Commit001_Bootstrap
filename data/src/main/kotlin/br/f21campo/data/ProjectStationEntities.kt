@@ -46,3 +46,14 @@ data class OccupationEntity(
     val hasBeforeHeight: Boolean,
     val beforeHeightMeters: Double?,
 )
+
+@Entity(tableName = "occupation_artifacts")
+data class OccupationArtifactEntity(
+    @PrimaryKey val id: String,
+    val occupationId: String,
+    val role: String,
+    val path: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val importedAtEpochMillis: Long,
+)
