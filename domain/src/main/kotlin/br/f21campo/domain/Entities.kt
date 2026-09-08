@@ -45,6 +45,7 @@ data class Occupation(
     val id: EntityId,
     val projectId: EntityId,
     val stationId: EntityId,
+    val referencePointId: EntityId? = null,
     val plannedStart: Instant? = null,
     val confirmedStart: Instant? = null,
     val confirmedStop: Instant? = null,

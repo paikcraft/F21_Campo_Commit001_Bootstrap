@@ -23,4 +23,9 @@ object Migrations {
             database.execSQL("ALTER TABLE occupations ADD COLUMN beforeHeightMeters REAL")
         }
     }
+    val V4_TO_V5 = object : Migration(4, 5) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE occupations ADD COLUMN referencePointId TEXT")
+        }
+    }
 }

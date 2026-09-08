@@ -4,6 +4,7 @@ import java.time.Instant
 
 object OccupationStateMachine {
     fun ready(occupation: Occupation): DomainResult<Occupation> {
+        if (occupation.referencePointId == null) return DomainResult.Failure(DomainError.InvalidValue("referencePoint", "RN, MT or PA is required before READY"))
         if (!occupation.hasBeforeHeight || occupation.beforeHeightMeters == null) return DomainResult.Failure(DomainError.InvalidValue("beforeHeight", "at least one BEFORE measurement is required before READY"))
         return transition(occupation, OccupationState.READY) {
         occupation.copy(state = OccupationState.READY)

@@ -43,6 +43,8 @@ import br.f21campo.domain.HeightPhase
 import br.f21campo.domain.HeightSet
 import br.f21campo.domain.HeightType
 import br.f21campo.domain.DomainResult
+import br.f21campo.domain.ReferencePoint
+import br.f21campo.domain.ReferencePointType
 import java.time.Instant
 import java.io.File
 import kotlinx.coroutines.launch
@@ -57,7 +59,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5)
             .build()
         setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao())) }
     }
@@ -77,6 +79,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var before by remember { mutableStateOf(listOf("", "", "")) }
     var after by remember { mutableStateOf(listOf("", "", "")) }
     var event by remember { mutableStateOf("") }
+    var referenceCode by remember { mutableStateOf("") }
+    var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
     var showHome by remember { mutableStateOf(true) }
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
@@ -134,6 +138,26 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         status = "Estação salva — ID preservado"
                     }
                 }) { Text("Salvar estação") }
+                Text("Referência rastreada")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ReferencePointType.entries.forEach { type ->
+                        Button(onClick = { referenceType = type }, enabled = referenceType != type) { Text(type.name) }
+                    }
+                }
+                OutlinedTextField(referenceCode, { referenceCode = it }, label = { Text("Código da referência") })
+                Button(onClick = {
+                    val stationId = savedId
+                    if (stationId == null || referenceCode.isBlank()) {
+                        status = "Salve a estação e informe o código da referência"
+                    } else {
+                        val point = ReferencePoint(EntityId.new(), stationId, referenceType, referenceCode.trim())
+                        scope.launch {
+                            repository.save(point)
+                            occupation = occupation.copy(stationId = stationId, referencePointId = point.id)
+                            status = "Referência ${point.type}: ${point.code} registrada"
+                        }
+                    }
+                }) { Text("Registrar referência") }
                 HorizontalDivider()
                 Text("Ocupação: ${occupation.state}")
                 Button(onClick = {
@@ -153,7 +177,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado" }
                 }) { Text("Associar receptor e antena") }
-                Button(enabled = occupation.state == OccupationState.DRAFT, onClick = { val result = OccupationStateMachine.ready(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("READY") }
+                Button(enabled = occupation.state == OccupationState.DRAFT, onClick = {
+                    val result = OccupationStateMachine.ready(occupation)
+                    if (result is DomainResult.Success) occupation = result.value
+                    else status = "Registre a referência e ao menos uma altura BEFORE"
+                }) { Text("READY") }
                 Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("INICIAR") }
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) occupation = result.value }) { Text("PARAR") }
                 Text("Alturas BEFORE")

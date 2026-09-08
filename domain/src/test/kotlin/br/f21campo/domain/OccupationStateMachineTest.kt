@@ -7,7 +7,7 @@ import org.junit.Test
 
 class OccupationStateMachineTest {
     private val t = Instant.parse("2026-09-07T12:00:00Z")
-    private fun draft(hasBeforeHeight: Boolean = true) = Occupation(EntityId.new(), EntityId.new(), EntityId.new(), hasBeforeHeight = hasBeforeHeight, beforeHeightMeters = if (hasBeforeHeight) 1.5 else null)
+    private fun draft(hasBeforeHeight: Boolean = true) = Occupation(EntityId.new(), EntityId.new(), EntityId.new(), referencePointId = EntityId.new(), hasBeforeHeight = hasBeforeHeight, beforeHeightMeters = if (hasBeforeHeight) 1.5 else null)
 
     @Test fun mainFlowPreservesConfirmedTimestamps() {
         val ready = (OccupationStateMachine.ready(draft()) as DomainResult.Success).value
@@ -37,5 +37,10 @@ class OccupationStateMachineTest {
 
     @Test fun readyRequiresAtLeastOneBeforeHeight() {
         assertTrue(OccupationStateMachine.ready(draft(hasBeforeHeight = false)) is DomainResult.Failure)
+    }
+
+    @Test fun readyRequiresReferencePoint() {
+        val withoutReference = draft().copy(referencePointId = null)
+        assertTrue(OccupationStateMachine.ready(withoutReference) is DomainResult.Failure)
     }
 }

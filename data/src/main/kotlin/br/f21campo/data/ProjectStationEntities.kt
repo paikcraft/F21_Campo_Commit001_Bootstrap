@@ -36,6 +36,7 @@ data class OccupationEntity(
     @PrimaryKey val id: String,
     val projectId: String,
     val stationId: String,
+    val referencePointId: String?,
     val state: String,
     val plannedStartEpochMillis: Long?,
     val confirmedStartEpochMillis: Long?,
