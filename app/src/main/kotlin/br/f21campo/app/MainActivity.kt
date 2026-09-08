@@ -194,6 +194,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     occupation = Occupation(EntityId.new(), savedId ?: EntityId.new(), EntityId.new())
                     receiverModel = ""
                     antennaModel = ""
+                    receiverManufacturer = ""
+                    antennaManufacturer = ""
+                    receiverSerial = ""
+                    antennaSerial = ""
                     before = listOf("")
                     after = listOf("")
                     event = ""
@@ -206,6 +210,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo da antena") })
                 OutlinedTextField(antennaManufacturer, { antennaManufacturer = it }, label = { Text("Fabricante da antena") })
                 OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Nº de série da antena") })
+                Text("Origem do equipamento: informado pelo operador")
                 Button(onClick = {
                     val receiver = Receiver(EntityId.new(), manufacturer = receiverManufacturer.ifBlank { null }, model = receiverModel.ifBlank { "manual" }, serialNumber = receiverSerial.ifBlank { null })
                     val antenna = Antenna(EntityId.new(), manufacturer = antennaManufacturer.ifBlank { null }, model = antennaModel.ifBlank { "manual" }, serialNumber = antennaSerial.ifBlank { null })
