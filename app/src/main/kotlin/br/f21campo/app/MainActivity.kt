@@ -776,8 +776,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.ACTIVE) {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
-                    Text("RASTREIO ATIVO", style = MaterialTheme.typography.headlineSmall)
-                    Text("ETAPA 6/7 · CAMPO", style = MaterialTheme.typography.titleMedium)
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("RASTREIO ATIVO", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                            Text("ETAPA 6/7 · CAMPO", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.titleMedium)
+                            Text("Acompanhe a ocupação e registre ocorrências.", color = Color(0xFFD5EAF5))
+                        }
+                    }
                     val trackingTime = occupation.confirmedStart?.let { TrackingTimer.measure(it, Instant.ofEpochMilli(nowEpochMillis), occupation.plannedDurationSeconds) }
                     val activeElapsed = trackingTime?.elapsedSeconds
                     val target = trackingTime?.plannedSeconds
@@ -820,9 +825,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }, modifier = Modifier.fillMaxWidth()) { Text("PARAR RASTREIO") }
                     Text(status)
                 } else if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
-                    Text("FINALIZAÇÃO", style = MaterialTheme.typography.headlineSmall)
-                    Text("Referência: ${referenceCode.ifBlank { "ocupação recuperada" }}")
-                    Text("Status: ${occupation.state}")
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("FINALIZAÇÃO", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                            Text("Referência: ${referenceCode.ifBlank { "ocupação recuperada" }}", color = Color(0xFFD5EAF5))
+                            Text("Status: ${occupation.state}", color = Color(0xFFD5EAF5))
+                        }
+                    }
                     Text("Registre as alturas AFTER e anexe o arquivo original copiado do receptor.")
                     Text("Alturas AFTER")
                     Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
