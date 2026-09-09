@@ -151,6 +151,35 @@ private fun StationScreen(repository: ProjectStationRepository) {
             }
         }
     }
+    val startNewTracking = {
+        name = ""
+        projectName = ""
+        locality = ""
+        savedId = null
+        occupation = Occupation(EntityId.new(), EntityId.new(), EntityId.new())
+        receiverModel = ""
+        antennaModel = ""
+        receiverManufacturer = ""
+        antennaManufacturer = ""
+        receiverSerial = ""
+        antennaSerial = ""
+        before = listOf("")
+        after = listOf("")
+        beforeUndo = emptyList()
+        afterUndo = emptyList()
+        beforeUnit = null
+        afterUnit = null
+        afterRegistered = false
+        event = ""
+        referenceCode = ""
+        referenceType = ReferencePointType.RN
+        rawImported = false
+        durationMinutes = ""
+        route = "NEW"
+        newStep = 1
+        showHome = false
+        status = "Etapa 1/7 — Projeto"
+    }
     LaunchedEffect(occupation) { repository.save(occupation) }
     LaunchedEffect(occupation.state, occupation.confirmedStart) {
         while (occupation.state == OccupationState.ACTIVE) {
@@ -184,7 +213,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("INÍCIO", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
                             Text("Escolha uma operação", color = Color(0xFF52636D))
-                            Button(onClick = { route = "NEW"; newStep = 1; showHome = false; status = "Etapa 1/7 — Projeto" }, modifier = Modifier.fillMaxWidth()) { Text("NOVO RASTREIO") }
+                            Button(onClick = { startNewTracking() }, modifier = Modifier.fillMaxWidth()) { Text("NOVO RASTREIO") }
                             Button(onClick = {
                                 scope.launch {
                                     val pending = repository.findIncompleteOccupations().firstOrNull()
@@ -472,7 +501,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Resumo: início ${occupation.confirmedStart ?: "—"} · fim ${occupation.confirmedStop ?: "—"}")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
-                        Button(onClick = { occupation = Occupation(EntityId.new(), occupation.projectId, occupation.stationId); before = listOf(""); after = listOf(""); beforeUnit = null; afterUnit = null; rawImported = false; afterRegistered = false; newStep = 1; route = "NEW"; status = "Novo rastreio" }) { Text("NOVO RASTREIO") }
+                        Button(onClick = { startNewTracking() }) { Text("NOVO RASTREIO") }
                     }
                 } else {
                 Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
