@@ -179,7 +179,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Button(onClick = {
                                 scope.launch {
                                     val pending = repository.findIncompleteOccupations().firstOrNull()
-                                    if (pending != null) { occupation = pending; rawImported = repository.hasRawArtifact(pending.id); status = "Rastreio recuperado: ${pending.state}"; route = "NEW"; newStep = 6; showHome = false }
+                                    if (pending != null) {
+                                        occupation = pending
+                                        rawImported = repository.hasRawArtifact(pending.id)
+                                        afterRegistered = repository.hasHeight(pending.id, HeightPhase.AFTER)
+                                        status = "Rastreio recuperado: ${pending.state}"
+                                        route = "NEW"
+                                        newStep = 6
+                                        showHome = false
+                                    }
                                     else status = "Nenhum rastreio incompleto encontrado"
                                 }
                             }, modifier = Modifier.fillMaxWidth()) { Text("CONTINUAR RASTREIO") }

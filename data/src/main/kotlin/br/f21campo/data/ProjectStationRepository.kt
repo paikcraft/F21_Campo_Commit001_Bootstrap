@@ -56,6 +56,8 @@ class ProjectStationRepository(
     }
 
     suspend fun hasRawArtifact(occupationId: EntityId): Boolean = artifactDao?.findByOccupation(occupationId.value)?.any { it.role == "RAW_RECEIVER" } == true
+    suspend fun hasHeight(occupationId: EntityId, phase: br.f21campo.domain.HeightPhase): Boolean =
+        heightDao?.findByOccupation(occupationId.value)?.any { it.phase == phase.name } == true
 
     suspend fun save(event: OccupationEvent): DomainResult<Unit> {
         val dao = eventDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("event", "DAO not configured"))
