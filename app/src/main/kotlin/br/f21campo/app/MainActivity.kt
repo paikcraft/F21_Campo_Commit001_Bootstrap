@@ -401,7 +401,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("FINALIZAÇÃO", style = MaterialTheme.typography.headlineSmall)
                     Text("Referência: ${referenceCode.ifBlank { "ocupação recuperada" }}")
                     Text("Status: ${occupation.state}")
-                    Text("Registre as alturas AFTER e importe o RAW antes de finalizar.")
+                    Text("Registre as alturas AFTER e anexe o arquivo original copiado do receptor.")
                     Text("Alturas AFTER")
                     after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -409,8 +409,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Button(enabled = after.size > 1, onClick = { afterUndo = afterUndo + listOf(after); after = after.dropLast(1) }) { Text("−") }
                         Button(enabled = afterUndo.isNotEmpty(), onClick = { after = afterUndo.last(); afterUndo = afterUndo.dropLast(1) }) { Text("DESFAZER") }
                     }
-                    Button(onClick = { rawPicker.launch("*/*") }) { Text("IMPORTAR RAW") }
-                    Text(if (rawImported) "RAW importado e associado" else "RAW pendente")
+                    Button(onClick = { rawPicker.launch("*/*") }) { Text("ANEXAR RAW DO CELULAR") }
+                    Text(if (rawImported) "RAW_RECEIVER associado com SHA-256" else "RAW pendente: selecione o arquivo já salvo no celular")
                     Button(enabled = occupation.state == OccupationState.STOPPED && rawImported, onClick = { val result = OccupationStateMachine.collect(occupation, true); if (result is DomainResult.Success) occupation = result.value }) { Text("FINALIZAR COLETA") }
                     Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("VALIDAR RASTREIO") }
                     Text("Resumo: início ${occupation.confirmedStart ?: "—"} · fim ${occupation.confirmedStop ?: "—"}")
