@@ -262,6 +262,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
             }
         }
     }
+    LaunchedEffect(route, newStep) {
+        if (route == "NEW" && newStep == 1) projects = repository.findAllProjects()
+    }
     val fieldBlue = Color(0xFF0B4F71)
     val fieldBlueDark = Color(0xFF073653)
     val fieldBackground = Color(0xFFF1F6FA)
@@ -474,6 +477,17 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     StepHeader(1, "PROJETO", "Identifique a comissão ou trabalho de campo.", fieldBlueDark)
                     OutlinedTextField(projectName, { projectName = it }, label = { Text("Nome do projeto/LH") })
                     Button(onClick = { if (projectName.isBlank()) status = "Informe o nome do projeto/LH" else { scope.launch { val project = br.f21campo.domain.Project(EntityId.new(), projectName.trim(), Instant.now()); repository.save(project); occupation = occupation.copy(projectId = project.id); status = "Projeto salvo localmente"; newStep = 2 } } }) { Text("SALVAR E AVANÇAR") }
+                    if (projects.isNotEmpty()) {
+                        Text("OU SELECIONE UM PROJETO SALVO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                        projects.takeLast(4).reversed().forEach { project ->
+                            Button(onClick = {
+                                projectName = project.name
+                                occupation = occupation.copy(projectId = project.id)
+                                status = "Projeto selecionado: ${project.name}"
+                                newStep = 2
+                            }, modifier = Modifier.fillMaxWidth()) { Text(project.name) }
+                        }
+                    }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 2) {
                     Button(onClick = { newStep = 1 }) { Text("VOLTAR") }
