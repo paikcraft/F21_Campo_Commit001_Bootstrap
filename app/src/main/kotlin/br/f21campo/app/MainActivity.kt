@@ -401,13 +401,19 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Button(enabled = occupation.state == OccupationState.DRAFT, onClick = {
                     val result = OccupationStateMachine.ready(occupation)
                     if (result is DomainResult.Success) { occupation = result.value; status = "READY confirmado — INICIAR está disponível" }
-                    else status = when (val error = (result as DomainResult.Failure).error) {
-                        is br.f21campo.domain.DomainError.InvalidValue -> "READY bloqueado: ${error.reason}"
-                        else -> "READY bloqueado: verifique os dados da ocupação"
+                    else {
+                        if (occupation.referencePointId == null) newStep = 3
+                        else if (!occupation.hasBeforeHeight) newStep = 5
+                        status = when (val error = (result as DomainResult.Failure).error) {
+                            is br.f21campo.domain.DomainError.InvalidValue -> "READY bloqueado: ${error.reason}. Use a etapa indicada para corrigir."
+                            else -> "READY bloqueado: verifique os dados da ocupação"
+                        }
                     }
                 }) { Text("READY") }
                 if (occupation.state == OccupationState.DRAFT) {
                     Text("Para READY: referência ${if (occupation.referencePointId != null) "OK" else "pendente"} · altura BEFORE ${if (occupation.hasBeforeHeight) "OK" else "pendente"}")
+                    if (occupation.referencePointId == null) Button(onClick = { newStep = 3 }) { Text("IR PARA REFERÊNCIA") }
+                    if (!occupation.hasBeforeHeight) Button(onClick = { newStep = 5 }) { Text("IR PARA ALTURA BEFORE") }
                 }
                 Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" } }) { Text("INICIAR") }
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
