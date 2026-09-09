@@ -1,6 +1,7 @@
 package br.f21campo.app
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -141,6 +142,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var rawSummary by remember { mutableStateOf<String?>(null) }
     var afterRegistered by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
+    var trackingTimeAlerted by remember { mutableStateOf(false) }
     var connectionTransport by remember { mutableStateOf(ReceiverTransportType.WIFI_TCP) }
     var connectionHost by remember { mutableStateOf("") }
     var connectionPort by remember { mutableStateOf("") }
@@ -190,6 +192,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         rawImported = false
         rawSummary = null
         durationMinutes = ""
+        trackingTimeAlerted = false
         route = "NEW"
         newStep = 1
         showHome = false
@@ -200,6 +203,17 @@ private fun StationScreen(repository: ProjectStationRepository) {
         while (occupation.state == OccupationState.ACTIVE) {
             nowEpochMillis = System.currentTimeMillis()
             delay(1000)
+        }
+    }
+    LaunchedEffect(occupation.state, occupation.confirmedStart, occupation.plannedDurationSeconds, nowEpochMillis) {
+        val startedAt = occupation.confirmedStart
+        val target = occupation.plannedDurationSeconds
+        if (occupation.state == OccupationState.ACTIVE && startedAt != null && target != null && !trackingTimeAlerted) {
+            val elapsedSeconds = ((nowEpochMillis - startedAt.toEpochMilli()).coerceAtLeast(0) / 1000)
+            if (elapsedSeconds >= target) {
+                trackingTimeAlerted = true
+                Toast.makeText(context, "Tempo planejado do rastreio cumprido", Toast.LENGTH_LONG).show()
+            }
         }
     }
     LaunchedEffect(route) {
@@ -523,7 +537,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }, modifier = Modifier.fillMaxWidth()) { Text("READY") }
                     Button(enabled = occupation.state == OccupationState.READY, onClick = {
                         val result = OccupationStateMachine.start(occupation, Instant.now())
-                        if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" }
+                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; status = "Rastreio iniciado" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.READY) {
@@ -541,7 +555,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     Button(onClick = {
                         val result = OccupationStateMachine.start(occupation, Instant.now())
-                        if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" }
+                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; status = "Rastreio iniciado" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR RASTREIO") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.ACTIVE) {
@@ -727,7 +741,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     if (occupation.referencePointId == null) Button(onClick = { newStep = 3 }) { Text("IR PARA REFERÊNCIA") }
                     if (!occupation.hasBeforeHeight) Button(onClick = { newStep = 5 }) { Text("IR PARA ALTURA BEFORE") }
                 }
-                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" } }) { Text("INICIAR") }
+                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; status = "Rastreio iniciado" } }) { Text("INICIAR") }
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
                 Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
                     val result = OccupationStateMachine.collectWithEvidence(occupation, hasRawEvidence = rawImported, hasAfterHeight = afterRegistered)
