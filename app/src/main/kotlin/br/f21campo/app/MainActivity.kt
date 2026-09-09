@@ -97,6 +97,22 @@ private fun heightUnitHint(readings: List<String>, selectedUnit: String?): Strin
     }
 }
 
+private fun readinessMissingItems(
+    projectName: String,
+    stationName: String,
+    locality: String,
+    hasReference: Boolean,
+    hasEquipment: Boolean,
+    hasBeforeHeight: Boolean,
+): List<String> = buildList {
+    if (projectName.isBlank()) add("projeto/LH")
+    if (stationName.isBlank()) add("nome da estação")
+    if (locality.isBlank()) add("localidade")
+    if (!hasReference) add("referência RN/MT/PA")
+    if (!hasEquipment) add("equipamento")
+    if (!hasBeforeHeight) add("altura BEFORE")
+}
+
 @Composable
 private fun StepHeader(step: Int, title: String, detail: String, fieldBlueDark: Color) {
     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
@@ -531,14 +547,31 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     OutlinedTextField(durationMinutes, { value -> durationMinutes = value.filter(Char::isDigit); occupation = occupation.copy(plannedDurationSeconds = value.toLongOrNull()?.takeIf { it > 0 }?.times(60)) }, label = { Text("Tempo planejado em minutos (opcional)") }, modifier = Modifier.fillMaxWidth())
                     Button(onClick = {
-                        val result = OccupationStateMachine.ready(occupation)
-                        if (result is DomainResult.Success) {
-                            occupation = result.value
-                            status = "READY confirmado — toque em INICIAR"
+                        val missing = readinessMissingItems(
+                            projectName = projectName,
+                            stationName = name,
+                            locality = locality,
+                            hasReference = occupation.referencePointId != null,
+                            hasEquipment = occupation.equipment != null,
+                            hasBeforeHeight = occupation.hasBeforeHeight,
+                        )
+                        if (missing.isNotEmpty()) {
+                            newStep = when {
+                                projectName.isBlank() -> 1
+                                name.isBlank() || locality.isBlank() -> 2
+                                occupation.referencePointId == null -> 3
+                                occupation.equipment == null -> 4
+                                else -> 5
+                            }
+                            status = "READY bloqueado: complete ${missing.joinToString(", ")}" 
                         } else {
-                            if (occupation.referencePointId == null) newStep = 3
-                            else if (!occupation.hasBeforeHeight) newStep = 5
-                            status = "READY bloqueado: referência e altura BEFORE são obrigatórias"
+                            val result = OccupationStateMachine.ready(occupation)
+                            if (result is DomainResult.Success) {
+                                occupation = result.value
+                                status = "READY confirmado — toque em INICIAR"
+                            } else {
+                                status = "READY bloqueado pela máquina de estados"
+                            }
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text("READY") }
                     Button(enabled = occupation.state == OccupationState.READY, onClick = {
