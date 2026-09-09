@@ -102,6 +102,17 @@ private fun heightUnitHint(readings: List<String>, selectedUnit: String?): Strin
     }
 }
 
+private data class HeightStatistics(val meanMeters: Double, val rangeMeters: Double)
+
+private fun heightStatistics(values: List<HeightMeasurement>): HeightStatistics? {
+    val measurements = values.map(HeightMeasurement::valueMeters).filter { it.isFinite() }
+    if (measurements.isEmpty()) return null
+    return HeightStatistics(
+        meanMeters = measurements.average(),
+        rangeMeters = measurements.max() - measurements.min(),
+    )
+}
+
 private fun readinessMissingItems(
     projectName: String,
     stationName: String,
@@ -474,8 +485,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Text("Antena: ${reviewed.equipment?.antenna?.model ?: "não informada"}")
                         Text("ALTURAS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                         if (reviewedHeights.isEmpty()) Text("Nenhuma altura registrada")
+                        val beforeStatistics = heightStatistics(reviewedHeights.filter { it.phase == HeightPhase.BEFORE })
+                        val afterStatistics = heightStatistics(reviewedHeights.filter { it.phase == HeightPhase.AFTER })
                         reviewedHeights.groupBy { it.phase }.forEach { (phase, values) ->
+                            val statistics = heightStatistics(values)
                             Text("$phase: ${values.joinToString { "%.4f m".format(it.valueMeters) }}")
+                            statistics?.let { Text("Média: %.4f m · amplitude: %.4f m".format(it.meanMeters, it.rangeMeters)) }
+                        }
+                        if (beforeStatistics != null && afterStatistics != null) {
+                            Text("Delta entre médias: %.4f m".format(afterStatistics.meanMeters - beforeStatistics.meanMeters))
                         }
                         Text("EVENTOS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                         if (reviewedEvents.isEmpty()) Text("Nenhum evento registrado")
