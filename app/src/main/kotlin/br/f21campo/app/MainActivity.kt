@@ -54,6 +54,8 @@ import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.OccupationEventCategory
 import br.f21campo.domain.EventSeverity
 import br.f21campo.domain.HeightMeasurement
+import br.f21campo.receiver.api.ReceiverTransportType
+import br.f21campo.receiver.manual.ManualReceiverConnection
 import java.time.Instant
 import java.io.File
 import kotlinx.coroutines.launch
@@ -116,6 +118,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var stationHistory by remember { mutableStateOf(emptyList<Occupation>()) }
     var rawImported by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
+    var connectionTransport by remember { mutableStateOf(ReceiverTransportType.WIFI_TCP) }
+    var connectionHost by remember { mutableStateOf("") }
+    var connectionPort by remember { mutableStateOf("") }
+    var bluetoothName by remember { mutableStateOf("") }
+    var bluetoothMac by remember { mutableStateOf("") }
+    var connectionNotes by remember { mutableStateOf("") }
+    var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
+    val manualConnection = remember { ManualReceiverConnection() }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -190,6 +200,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("APLICATIVO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Button(onClick = { route = "CONNECTION"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONEXÃO DE BANCADA") }
                             Button(onClick = { route = "SETTINGS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAÇÕES") }
                             Button(onClick = { route = "ABOUT"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("SOBRE") }
                         }
@@ -235,6 +246,51 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                     Text("Modo: ${BuildConfig.BUILD_MODE}")
                     Text("O aplicativo funciona offline e registra a origem manual dos equipamentos.")
+                    Button(onClick = { route = "CONNECTION" }, modifier = Modifier.fillMaxWidth()) { Text("CONEXÃO DE BANCADA") }
+                } else if (route == "CONNECTION") {
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("CONEXÃO DE BANCADA", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                            Text("Perfil neutro para testes reais de receptor", color = Color(0xFFD5EAF5))
+                        }
+                    }
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
+                    Text("Transporte", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { connectionTransport = ReceiverTransportType.WIFI_TCP }, enabled = connectionTransport != ReceiverTransportType.WIFI_TCP) { Text("WI-FI/TCP") }
+                        Button(onClick = { connectionTransport = ReceiverTransportType.BLUETOOTH }, enabled = connectionTransport != ReceiverTransportType.BLUETOOTH) { Text("BT") }
+                        Button(onClick = { connectionTransport = ReceiverTransportType.SERIAL }, enabled = connectionTransport != ReceiverTransportType.SERIAL) { Text("SERIAL") }
+                    }
+                    if (connectionTransport == ReceiverTransportType.WIFI_TCP || connectionTransport == ReceiverTransportType.SERIAL) {
+                        OutlinedTextField(connectionHost, { connectionHost = it }, label = { Text("IP/endereço do receptor") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(connectionPort, { connectionPort = it.filter(Char::isDigit) }, label = { Text("Porta, se conhecida") }, modifier = Modifier.fillMaxWidth())
+                    }
+                    if (connectionTransport == ReceiverTransportType.BLUETOOTH) {
+                        OutlinedTextField(bluetoothName, { bluetoothName = it }, label = { Text("Nome Bluetooth, se conhecido") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(bluetoothMac, { bluetoothMac = it }, label = { Text("MAC Bluetooth, se conhecido") }, modifier = Modifier.fillMaxWidth())
+                    }
+                    OutlinedTextField(connectionNotes, { connectionNotes = it }, label = { Text("Observações de bancada") }, modifier = Modifier.fillMaxWidth())
+                    Button(onClick = {
+                        val endpoint = when (connectionTransport) {
+                            ReceiverTransportType.WIFI_TCP, ReceiverTransportType.SERIAL -> listOf(connectionHost.trim(), connectionPort.trim()).filter { it.isNotBlank() }.joinToString(":")
+                            ReceiverTransportType.BLUETOOTH -> listOf(bluetoothName.trim(), bluetoothMac.trim()).filter { it.isNotBlank() }.joinToString(" · ")
+                            ReceiverTransportType.UNKNOWN -> ""
+                        }
+                        val result = manualConnection.connect(endpoint)
+                        connectionStatus = "${result.state}: ${result.message ?: "sem mensagem"}"
+                        status = "Perfil de conexão registrado para bancada"
+                    }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR PERFIL / TESTAR LIMITE") }
+                    Button(onClick = {
+                        val result = manualConnection.disconnect()
+                        connectionStatus = "${result.state}: ${result.message ?: "sem mensagem"}"
+                    }, modifier = Modifier.fillMaxWidth()) { Text("DESCONECTAR") }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Estado", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text(connectionStatus)
+                            Text("Sem comandos Spectra automáticos nesta versão. Porta, framing, handshake e respostas dependem de validação física.")
+                        }
+                    }
                 } else if (route == "ABOUT") {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Text("SOBRE", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp)) }
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
@@ -276,6 +332,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     OutlinedTextField(antennaManufacturer, { antennaManufacturer = it }, label = { Text("Fabricante da antena") })
                     OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Nº de série da antena") })
                     Button(onClick = { val receiver = Receiver(EntityId.new(), receiverManufacturer.ifBlank { null }, receiverModel.ifBlank { "manual" }, receiverSerial.ifBlank { null }); val antenna = Antenna(EntityId.new(), antennaManufacturer.ifBlank { null }, antennaModel.ifBlank { "manual" }, antennaSerial.ifBlank { null }); val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna); if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado"; newStep = 5 } }) { Text("ASSOCIAR E AVANÇAR") }
+                    Button(onClick = { route = "CONNECTION" }, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAR CONEXÃO DE BANCADA") }
                     Text("Origem: informado pelo operador")
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 5) {
@@ -289,6 +346,56 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }; Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") } }
                     Button(onClick = { val valid = before.mapNotNull(String::toDoubleOrNull).firstOrNull { it.isFinite() }?.let { heightToMeters(it, beforeUnit) }; if (beforeUnit == null) status = "Confirme a unidade da altura BEFORE" else if (valid == null) status = "Informe uma altura BEFORE válida" else { occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = valid); status = "BEFORE registrado em ${beforeUnit} — pronto para READY"; newStep = 6 } }) { Text("REGISTRAR BEFORE E AVANÇAR") }
+                    Text(status)
+                } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 6) {
+                    Button(onClick = { newStep = 5 }) { Text("VOLTAR") }
+                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
+                    Text("ETAPA 6/7 · PREPARO", style = MaterialTheme.typography.titleMedium)
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Checklist para iniciar", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Projeto/LH: ${if (projectName.isNotBlank()) "OK" else "pendente"}")
+                            Text("Estação/localidade: ${if (name.isNotBlank() && locality.isNotBlank()) "OK" else "pendente"}")
+                            Text("Referência RN/MT/PA: ${if (occupation.referencePointId != null) "OK" else "pendente"}")
+                            Text("Equipamento manual: ${if (occupation.equipment != null) "OK" else "pendente"}")
+                            Text("Altura BEFORE: ${if (occupation.hasBeforeHeight) "OK" else "pendente"}")
+                            Text("Tempo planejado: ${occupation.plannedDurationSeconds?.let { "${it / 60} min" } ?: "indefinido"}")
+                        }
+                    }
+                    OutlinedTextField(durationMinutes, { value -> durationMinutes = value.filter(Char::isDigit); occupation = occupation.copy(plannedDurationSeconds = value.toLongOrNull()?.takeIf { it > 0 }?.times(60)) }, label = { Text("Tempo planejado em minutos (opcional)") }, modifier = Modifier.fillMaxWidth())
+                    Button(onClick = {
+                        val result = OccupationStateMachine.ready(occupation)
+                        if (result is DomainResult.Success) {
+                            occupation = result.value
+                            status = "READY confirmado — toque em INICIAR"
+                        } else {
+                            if (occupation.referencePointId == null) newStep = 3
+                            else if (!occupation.hasBeforeHeight) newStep = 5
+                            status = "READY bloqueado: referência e altura BEFORE são obrigatórias"
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("READY") }
+                    Button(enabled = occupation.state == OccupationState.READY, onClick = {
+                        val result = OccupationStateMachine.start(occupation, Instant.now())
+                        if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR") }
+                    Text(status)
+                } else if (route == "NEW" && occupation.state == OccupationState.READY) {
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
+                    Text("RASTREIO PRONTO", style = MaterialTheme.typography.headlineSmall)
+                    Text("ETAPA 6/7 · READY", style = MaterialTheme.typography.titleMedium)
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Tudo pronto para iniciar", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Referência: ${referenceType.name} ${referenceCode.ifBlank { "selecionada" }}")
+                            Text("Receptor: ${occupation.equipment?.receiver?.model ?: receiverModel.ifBlank { "manual" }}")
+                            Text("Antena: ${occupation.equipment?.antenna?.model ?: antennaModel.ifBlank { "manual" }}")
+                            Text("Tempo planejado: ${occupation.plannedDurationSeconds?.let { "${it / 60} min" } ?: "indefinido"}")
+                        }
+                    }
+                    Button(onClick = {
+                        val result = OccupationStateMachine.start(occupation, Instant.now())
+                        if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR RASTREIO") }
                     Text(status)
                 } else if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
                     Text("FINALIZAÇÃO", style = MaterialTheme.typography.headlineSmall)
