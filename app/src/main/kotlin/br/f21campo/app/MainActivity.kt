@@ -75,6 +75,15 @@ private fun heightToMeters(value: Double, unit: String?): Double? = when (unit) 
     else -> null
 }
 
+private fun heightUnitFromObservation(observation: String?): String? =
+    observation?.substringAfter("unit=", missingDelimiterValue = "")?.takeIf { it in setOf("mm", "cm", "m") }
+
+private fun heightFromMeters(valueMeters: Double, unit: String?): Double = when (unit) {
+    "mm" -> valueMeters * 1000.0
+    "cm" -> valueMeters * 100.0
+    else -> valueMeters
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -183,8 +192,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         val heights = repository.findHeights(pending.id)
                                         occupation = pending
                                         rawImported = repository.hasRawArtifact(pending.id)
-                                        before = heights.filter { it.phase == HeightPhase.BEFORE }.map { "%.4f".format(it.valueMeters) }.ifEmpty { before }
-                                        after = heights.filter { it.phase == HeightPhase.AFTER }.map { "%.4f".format(it.valueMeters) }.ifEmpty { after }
+                                        val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
+                                        val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
+                                        beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: beforeUnit
+                                        afterUnit = afterHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: afterUnit
+                                        before = beforeHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, beforeUnit)) }.ifEmpty { before }
+                                        after = afterHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, afterUnit)) }.ifEmpty { after }
                                         afterRegistered = heights.any { it.phase == HeightPhase.AFTER }
                                         status = "Rastreio recuperado: ${pending.state}"
                                         route = "NEW"
