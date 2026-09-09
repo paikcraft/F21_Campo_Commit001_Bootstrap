@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
     implementation(project(":domain"))
+    implementation(project(":receiver-api"))
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

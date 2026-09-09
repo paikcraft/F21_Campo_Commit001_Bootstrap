@@ -50,3 +50,10 @@ interface HeightMeasurementDao {
     @Upsert suspend fun upsert(measurement: HeightMeasurementEntity)
     @Query("SELECT * FROM height_measurements WHERE occupationId = :occupationId ORDER BY phase, id") suspend fun findByOccupation(occupationId: String): List<HeightMeasurementEntity>
 }
+
+@Dao
+interface ReceiverConnectionProfileDao {
+    @Upsert suspend fun upsert(profile: ReceiverConnectionProfileEntity)
+    @Query("SELECT * FROM receiver_connection_profiles ORDER BY savedAtEpochMillis DESC")
+    suspend fun findAll(): List<ReceiverConnectionProfileEntity>
+}

@@ -13,6 +13,8 @@ import br.f21campo.domain.HeightType
 import br.f21campo.domain.OccupationEventCategory
 import br.f21campo.domain.EventSeverity
 import br.f21campo.domain.ProvenanceSource
+import br.f21campo.receiver.api.ReceiverConnectionProfile
+import br.f21campo.receiver.api.ReceiverTransportType
 import java.time.Instant
 
 class ProjectStationRepository(
@@ -23,6 +25,7 @@ class ProjectStationRepository(
     private val artifactDao: OccupationArtifactDao? = null,
     private val eventDao: OccupationEventDao? = null,
     private val heightDao: HeightMeasurementDao? = null,
+    private val connectionProfileDao: ReceiverConnectionProfileDao? = null,
 ) {
     suspend fun save(project: Project): DomainResult<Unit> {
         projectDao.upsert(project.toEntity())
@@ -108,4 +111,33 @@ class ProjectStationRepository(
         dao.upsert(HeightMeasurementEntity(EntityId.new().value, occupationId.value, measurement.phase.name, measurement.valueMeters, measurement.type.name, measurement.observedAt?.toEpochMilli(), measurement.observation))
         return DomainResult.Success(Unit)
     }
+
+    suspend fun saveConnectionProfile(profile: ReceiverConnectionProfile): DomainResult<Unit> {
+        val dao = connectionProfileDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("connectionProfile", "DAO not configured"))
+        dao.upsert(
+            ReceiverConnectionProfileEntity(
+                id = EntityId.new().value,
+                transportType = profile.transportType.name,
+                hostOrAddress = profile.hostOrAddress,
+                port = profile.port,
+                bluetoothName = profile.bluetoothName,
+                bluetoothMac = profile.bluetoothMac,
+                notes = profile.notes,
+                savedAtEpochMillis = Instant.now().toEpochMilli(),
+            ),
+        )
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun findConnectionProfiles(): List<ReceiverConnectionProfile> =
+        connectionProfileDao?.findAll()?.map {
+            ReceiverConnectionProfile(
+                transportType = ReceiverTransportType.valueOf(it.transportType),
+                hostOrAddress = it.hostOrAddress,
+                port = it.port,
+                bluetoothName = it.bluetoothName,
+                bluetoothMac = it.bluetoothMac,
+                notes = it.notes,
+            )
+        }.orEmpty()
 }

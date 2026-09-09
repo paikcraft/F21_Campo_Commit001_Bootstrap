@@ -73,4 +73,10 @@ object Migrations {
             database.execSQL("ALTER TABLE occupations ADD COLUMN antennaManufacturer TEXT")
         }
     }
+    val V12_TO_V13 = object : Migration(12, 13) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS receiver_connection_profiles (id TEXT NOT NULL PRIMARY KEY, transportType TEXT NOT NULL, hostOrAddress TEXT, port INTEGER, bluetoothName TEXT, bluetoothMac TEXT, notes TEXT, savedAtEpochMillis INTEGER NOT NULL)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_receiver_connection_profiles_savedAtEpochMillis ON receiver_connection_profiles(savedAtEpochMillis)")
+        }
+    }
 }

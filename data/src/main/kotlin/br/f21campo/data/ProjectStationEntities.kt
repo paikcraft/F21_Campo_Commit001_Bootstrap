@@ -1,6 +1,7 @@
 package br.f21campo.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "projects")
@@ -83,4 +84,17 @@ data class HeightMeasurementEntity(
     val type: String,
     val observedAtEpochMillis: Long?,
     val observation: String?,
+)
+
+/** A locally saved bench profile; it intentionally does not contain credentials. */
+@Entity(tableName = "receiver_connection_profiles", indices = [Index("savedAtEpochMillis")])
+data class ReceiverConnectionProfileEntity(
+    @PrimaryKey val id: String,
+    val transportType: String,
+    val hostOrAddress: String?,
+    val port: Int?,
+    val bluetoothName: String?,
+    val bluetoothMac: String?,
+    val notes: String?,
+    val savedAtEpochMillis: Long,
 )

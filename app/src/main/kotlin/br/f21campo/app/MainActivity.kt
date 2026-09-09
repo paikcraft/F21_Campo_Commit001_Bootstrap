@@ -58,6 +58,7 @@ import br.f21campo.domain.EventSeverity
 import br.f21campo.domain.HeightMeasurement
 import br.f21campo.domain.TrackingTimer
 import br.f21campo.receiver.api.ReceiverTransportType
+import br.f21campo.receiver.api.ReceiverConnectionProfile
 import br.f21campo.receiver.api.TcpReceiverTransport
 import br.f21campo.receiver.manual.ManualReceiverConnection
 import java.time.Instant
@@ -132,9 +133,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10, Migrations.V10_TO_V11, Migrations.V11_TO_V12)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10, Migrations.V10_TO_V11, Migrations.V11_TO_V12, Migrations.V12_TO_V13)
             .build()
-        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao(), database.heightMeasurementDao())) }
+        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao(), database.heightMeasurementDao(), database.receiverConnectionProfileDao())) }
     }
 }
 
@@ -184,6 +185,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var bluetoothMac by remember { mutableStateOf("") }
     var connectionNotes by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
+    var connectionProfiles by remember { mutableStateOf(emptyList<ReceiverConnectionProfile>()) }
     val manualConnection = remember { ManualReceiverConnection() }
     val tcpTransport = remember { TcpReceiverTransport() }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -277,6 +279,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         if (route == "NEW" && newStep == 3) {
             referencePoints = savedId?.let { repository.findReferencePointsByStation(it) }.orEmpty()
         }
+        if (route == "CONNECTION") connectionProfiles = repository.findConnectionProfiles()
     }
     val fieldBlue = Color(0xFF0B4F71)
     val fieldBlueDark = Color(0xFF073653)
@@ -465,6 +468,19 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             ReceiverTransportType.UNKNOWN -> ""
                         }
                         scope.launch {
+                            if (endpoint.isNotBlank()) {
+                                repository.saveConnectionProfile(
+                                    ReceiverConnectionProfile(
+                                        transportType = connectionTransport,
+                                        hostOrAddress = connectionHost.trim().ifBlank { null },
+                                        port = connectionPort.toIntOrNull(),
+                                        bluetoothName = bluetoothName.trim().ifBlank { null },
+                                        bluetoothMac = bluetoothMac.trim().ifBlank { null },
+                                        notes = connectionNotes.trim().ifBlank { null },
+                                    ),
+                                )
+                                connectionProfiles = repository.findConnectionProfiles()
+                            }
                             val result = if (connectionTransport == ReceiverTransportType.WIFI_TCP) {
                                 withContext(Dispatchers.IO) { tcpTransport.connect(connectionHost.trim(), connectionPort.toIntOrNull() ?: 0) }
                             } else {
@@ -489,6 +505,23 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Text("Estado", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                             Text(connectionStatus)
                             Text("No Wi-Fi/TCP, o app testa somente se a porta aceita conexão. Não envia RID, START, STOP nem outro comando Spectra. Porta, framing, handshake e respostas dependem de validação física.")
+                        }
+                    }
+                    if (connectionProfiles.isNotEmpty()) {
+                        Text("PERFIS SALVOS NESTE APARELHO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                        connectionProfiles.take(3).forEach { profile ->
+                            Button(onClick = {
+                                connectionTransport = profile.transportType
+                                connectionHost = profile.hostOrAddress.orEmpty()
+                                connectionPort = profile.port?.toString().orEmpty()
+                                bluetoothName = profile.bluetoothName.orEmpty()
+                                bluetoothMac = profile.bluetoothMac.orEmpty()
+                                connectionNotes = profile.notes.orEmpty()
+                                connectionStatus = "Perfil carregado; teste a conexão quando o receptor estiver acessível"
+                            }, modifier = Modifier.fillMaxWidth()) {
+                                val label = profile.hostOrAddress ?: profile.bluetoothName ?: "perfil sem endereço"
+                                Text("${profile.transportType}: $label${profile.port?.let { ":$it" }.orEmpty()}")
+                            }
                         }
                     }
                 } else if (route == "ABOUT") {
