@@ -16,17 +16,21 @@ class EntitiesTest {
         assertNull(edited.municipality)
     }
 
-    @Test fun equipmentIsSnapshotAndHeightsKeepSixReadings() {
+    @Test fun equipmentIsSnapshotAndHeightsSupportVariableReadings() {
         val receiver = Receiver(EntityId.new(), model = "manual")
         val antenna = Antenna(EntityId.new(), model = "manual")
         val occupation = Occupation(EntityId.new(), EntityId.new(), EntityId.new(), equipment = EquipmentSnapshot(receiver, antenna))
         assertEquals(receiver, occupation.equipment!!.receiver)
-        val heights = HeightSet(
-            HeightObservation(HeightPhase.BEFORE, 1.0, 1.1, 1.2, HeightType.VERTICAL),
-            HeightObservation(HeightPhase.AFTER, 1.2, 1.3, 1.4, HeightType.VERTICAL),
+        val heights = HeightMeasurementSet(
+            listOf(
+                HeightMeasurement(HeightPhase.BEFORE, 1.0, HeightType.VERTICAL),
+                HeightMeasurement(HeightPhase.AFTER, 1.2, HeightType.VERTICAL),
+                HeightMeasurement(HeightPhase.AFTER, 1.4, HeightType.VERTICAL),
+            )
         )
-        assertEquals(6, listOf(heights.before.first, heights.before.second, heights.before.third, heights.after.first, heights.after.second, heights.after.third).size)
-        assertEquals(0.2, heights.deltaMean, 0.000001)
+        assertEquals(1.0, heights.mean(HeightPhase.BEFORE)!!, 0.000001)
+        assertEquals(0.2, heights.amplitude(HeightPhase.AFTER)!!, 0.000001)
+        assertEquals(0.3, heights.deltaMean!!, 0.000001)
     }
 
     @Test(expected = IllegalArgumentException::class)

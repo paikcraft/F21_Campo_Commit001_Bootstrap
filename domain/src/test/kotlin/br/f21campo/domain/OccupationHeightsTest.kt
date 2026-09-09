@@ -5,25 +5,27 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OccupationHeightsTest {
-    @Test fun sixOriginalReadingsAndDerivedValuesRemainAvailable() {
+    @Test fun variableHeightReadingsAndDerivedValuesRemainAvailable() {
         val occupation = Occupation(EntityId.new(), EntityId.new(), EntityId.new())
-        val set = HeightSet(
-            HeightObservation(HeightPhase.BEFORE, 1.000, 1.010, 1.020, HeightType.VERTICAL),
-            HeightObservation(HeightPhase.AFTER, 1.100, 1.110, 1.120, HeightType.SLANT),
+        val set = HeightMeasurementSet(
+            listOf(
+                HeightMeasurement(HeightPhase.BEFORE, 1.000, HeightType.VERTICAL),
+                HeightMeasurement(HeightPhase.BEFORE, 1.020, HeightType.VERTICAL),
+                HeightMeasurement(HeightPhase.AFTER, 1.100, HeightType.SLANT),
+            )
         )
-        val result = OccupationHeights.attach(occupation, set) as DomainResult.Success
-        assertEquals(6, listOf(set.before.first, set.before.second, set.before.third, set.after.first, set.after.second, set.after.third).size)
-        assertEquals(0.02, set.before.range, 0.000001)
-        assertEquals(0.10, result.value.heights.deltaMean, 0.000001)
-        assertEquals(HeightType.SLANT, result.value.heights.after.type)
+        val result = OccupationHeights.attachMeasurements(occupation, set) as DomainResult.Success
+        assertEquals(2, set.forPhase(HeightPhase.BEFORE).size)
+        assertEquals(0.02, set.amplitude(HeightPhase.BEFORE)!!, 0.000001)
+        assertEquals(0.09, result.value.heights.deltaMean!!, 0.000001)
+        assertEquals(HeightType.SLANT, set.forPhase(HeightPhase.AFTER).single().type)
     }
 
     @Test fun abortedOccupationCannotReceiveHeights() {
         val occupation = Occupation(EntityId.new(), EntityId.new(), EntityId.new(), state = OccupationState.ABORTED)
-        val set = HeightSet(
-            HeightObservation(HeightPhase.BEFORE, 1.0, 1.0, 1.0, HeightType.OTHER),
-            HeightObservation(HeightPhase.AFTER, 1.0, 1.0, 1.0, HeightType.OTHER),
+        val set = HeightMeasurementSet(
+            listOf(HeightMeasurement(HeightPhase.BEFORE, 1.0, HeightType.OTHER))
         )
-        assertTrue(OccupationHeights.attach(occupation, set) is DomainResult.Failure)
+        assertTrue(OccupationHeights.attachMeasurements(occupation, set) is DomainResult.Failure)
     }
 }
