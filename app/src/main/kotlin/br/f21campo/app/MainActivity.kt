@@ -55,6 +55,7 @@ import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.OccupationEventCategory
 import br.f21campo.domain.EventSeverity
 import br.f21campo.domain.HeightMeasurement
+import br.f21campo.domain.TrackingTimer
 import br.f21campo.receiver.api.ReceiverTransportType
 import br.f21campo.receiver.manual.ManualReceiverConnection
 import java.time.Instant
@@ -209,8 +210,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
         val startedAt = occupation.confirmedStart
         val target = occupation.plannedDurationSeconds
         if (occupation.state == OccupationState.ACTIVE && startedAt != null && target != null && !trackingTimeAlerted) {
-            val elapsedSeconds = ((nowEpochMillis - startedAt.toEpochMilli()).coerceAtLeast(0) / 1000)
-            if (elapsedSeconds >= target) {
+            val trackingTime = TrackingTimer.measure(startedAt, Instant.ofEpochMilli(nowEpochMillis), target)
+            if (trackingTime.targetReached) {
                 trackingTimeAlerted = true
                 Toast.makeText(context, "Tempo planejado do rastreio cumprido", Toast.LENGTH_LONG).show()
             }
@@ -562,9 +563,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                     Text("RASTREIO ATIVO", style = MaterialTheme.typography.headlineSmall)
                     Text("ETAPA 6/7 · CAMPO", style = MaterialTheme.typography.titleMedium)
-                    val activeElapsed = occupation.confirmedStart?.let { ((nowEpochMillis - it.toEpochMilli()).coerceAtLeast(0) / 1000) }
-                    val target = occupation.plannedDurationSeconds
-                    val reached = activeElapsed != null && target != null && activeElapsed >= target
+                    val trackingTime = occupation.confirmedStart?.let { TrackingTimer.measure(it, Instant.ofEpochMilli(nowEpochMillis), occupation.plannedDurationSeconds) }
+                    val activeElapsed = trackingTime?.elapsedSeconds
+                    val target = trackingTime?.plannedSeconds
+                    val reached = trackingTime?.targetReached == true
                     Card(colors = CardDefaults.cardColors(containerColor = if (reached) Color(0xFFFFF4D6) else Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Status: ACTIVE", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
