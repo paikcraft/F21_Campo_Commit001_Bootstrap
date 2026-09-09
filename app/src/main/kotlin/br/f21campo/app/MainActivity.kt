@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -322,6 +323,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("F-21 Campo", color = Color.White, style = MaterialTheme.typography.headlineMedium)
+                            Text("INÍCIO · ${BuildConfig.BUILD_MODE}", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.labelLarge)
                             Text("Aquisição e rastreio de referências", color = Color.White)
                             Text("Versão ${BuildConfig.VERSION_NAME} · funcionamento offline", color = Color(0xFFD5EAF5))
                         }
@@ -411,16 +413,16 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("DADOS DE CAMPO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
-                            Button(onClick = { route = "PROJECTS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("PROJETOS") }
-                            Button(onClick = { route = "STATIONS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("BANCO DE ESTAÇÕES") }
+                            OutlinedButton(onClick = { route = "PROJECTS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("PROJETOS") }
+                            OutlinedButton(onClick = { route = "STATIONS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("BANCO DE ESTAÇÕES") }
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("APLICATIVO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
-                            Button(onClick = { route = "CONNECTION"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONEXÃO DE BANCADA") }
-                            Button(onClick = { route = "SETTINGS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAÇÕES") }
-                            Button(onClick = { route = "ABOUT"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("SOBRE") }
+                            OutlinedButton(onClick = { route = "CONNECTION"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONEXÃO DE BANCADA") }
+                            OutlinedButton(onClick = { route = "SETTINGS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAÇÕES") }
+                            OutlinedButton(onClick = { route = "ABOUT"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("SOBRE") }
                         }
                     }
                 } else if (route == "PROJECTS") {
