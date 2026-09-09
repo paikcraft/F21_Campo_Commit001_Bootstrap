@@ -29,6 +29,15 @@ class OccupationStateMachineTest {
         assertTrue(result is DomainResult.Failure)
     }
 
+    @Test fun collectionWithEvidenceRequiresAfterHeight() {
+        val stopped = (OccupationStateMachine.stop(
+            (OccupationStateMachine.start((OccupationStateMachine.ready(draft()) as DomainResult.Success).value, t) as DomainResult.Success).value,
+            t.plusSeconds(1),
+        ) as DomainResult.Success).value
+        val result = OccupationStateMachine.collectWithEvidence(stopped, hasRawEvidence = true, hasAfterHeight = false)
+        assertTrue(result is DomainResult.Failure)
+    }
+
     @Test fun invalidTransitionAndAbortAreExplicit() {
         assertTrue(OccupationStateMachine.stop(draft(), t) is DomainResult.Failure)
         val aborted = OccupationStateMachine.abort(draft()) as DomainResult.Success

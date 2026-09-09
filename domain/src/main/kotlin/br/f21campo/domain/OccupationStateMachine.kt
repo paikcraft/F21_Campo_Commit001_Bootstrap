@@ -24,6 +24,15 @@ object OccupationStateMachine {
         return transition(occupation, OccupationState.COLLECTED) { occupation.copy(state = OccupationState.COLLECTED) }
     }
 
+    fun collectWithEvidence(
+        occupation: Occupation,
+        hasRawEvidence: Boolean,
+        hasAfterHeight: Boolean,
+    ): DomainResult<Occupation> {
+        if (!hasAfterHeight) return DomainResult.Failure(DomainError.InvalidValue("afterHeight", "required before COLLECTED"))
+        return collect(occupation, hasRawEvidence)
+    }
+
     fun validate(occupation: Occupation): DomainResult<Occupation> = transition(occupation, OccupationState.VALIDATED) {
         occupation.copy(state = OccupationState.VALIDATED)
     }

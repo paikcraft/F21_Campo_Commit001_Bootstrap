@@ -598,7 +598,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Button(onClick = { rawPicker.launch("*/*") }) { Text("ANEXAR RAW DO CELULAR") }
                     Text(if (rawImported) "RAW_RECEIVER: ${rawSummary ?: "associado com SHA-256"}" else "RAW pendente: selecione o arquivo já salvo no celular")
                     Text(if (afterRegistered) "Altura AFTER registrada" else "Altura AFTER pendente")
-                    Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = { val result = OccupationStateMachine.collect(occupation, true); if (result is DomainResult.Success) occupation = result.value }) { Text("FINALIZAR COLETA") }
+                    Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
+                        val result = OccupationStateMachine.collectWithEvidence(occupation, hasRawEvidence = rawImported, hasAfterHeight = afterRegistered)
+                        if (result is DomainResult.Success) occupation = result.value
+                    }) { Text("FINALIZAR COLETA") }
                     Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("VALIDAR RASTREIO") }
                     Text("Resumo: início ${occupation.confirmedStart ?: "—"} · fim ${occupation.confirmedStop ?: "—"}")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
