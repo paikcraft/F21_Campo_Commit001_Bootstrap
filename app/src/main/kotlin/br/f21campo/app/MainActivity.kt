@@ -563,7 +563,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 occupation.equipment == null -> 4
                                 else -> 5
                             }
-                            status = "READY bloqueado: complete ${missing.joinToString(", ")}" 
+                            status = "READY bloqueado: complete ${missing.joinToString(", ")}"
                         } else {
                             val result = OccupationStateMachine.ready(occupation)
                             if (result is DomainResult.Success) {
