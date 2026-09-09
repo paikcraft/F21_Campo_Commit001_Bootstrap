@@ -84,6 +84,17 @@ private fun heightFromMeters(valueMeters: Double, unit: String?): Double = when 
     else -> valueMeters
 }
 
+private fun heightUnitHint(readings: List<String>, selectedUnit: String?): String? {
+    val first = readings.firstOrNull { it.isNotBlank() }?.trim() ?: return null
+    if (selectedUnit != null) return null
+    val digitsOnly = first.all(Char::isDigit)
+    return when {
+        digitsOnly && first.length >= 4 -> "Leitura com 4+ dígitos: selecione mm se o valor foi anotado em milímetros."
+        digitsOnly && first.length == 3 -> "Leitura com 3 dígitos: confirme a unidade ou informe onde está a vírgula."
+        else -> "Selecione a unidade da altura antes de registrar."
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -460,13 +471,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("UNIDADE DA ALTURA", style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
                     Text("Selecionada: ${beforeUnit ?: "nenhuma — selecione uma unidade"}")
+                    heightUnitHint(before, beforeUnit)?.let { Text(it, color = fieldBlueDark) }
                     before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }; Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") } }
                     Button(onClick = {
                         val values = before.mapNotNull(String::toDoubleOrNull).filter { it.isFinite() }
                         val firstValid = values.firstOrNull()?.let { heightToMeters(it, beforeUnit) }
                         if (beforeUnit == null) {
-                            status = "Confirme a unidade da altura BEFORE"
+                            status = heightUnitHint(before, beforeUnit) ?: "Confirme a unidade da altura BEFORE"
                         } else if (firstValid == null) {
                             status = "Informe uma altura BEFORE válida"
                         } else {
@@ -572,6 +584,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Registre as alturas AFTER e anexe o arquivo original copiado do receptor.")
                     Text("Alturas AFTER")
                     Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
+                    heightUnitHint(after, afterUnit)?.let { Text(it, color = fieldBlueDark) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("mm", "cm", "m").forEach { unit ->
                             Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) }
@@ -585,7 +598,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     Button(onClick = {
                         val values = after.mapNotNull(String::toDoubleOrNull).filter { it.isFinite() }
-                        if (afterUnit == null) status = "Confirme a unidade da altura AFTER"
+                        if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura AFTER"
                         else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida"
                         else scope.launch {
                             values.forEach { value ->
@@ -739,6 +752,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }
                 Text("Alturas BEFORE")
                 Text("Unidade BEFORE: ${beforeUnit ?: "não selecionada"}")
+                heightUnitHint(before, beforeUnit)?.let { Text(it, color = fieldBlueDark) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -749,7 +763,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Button(onClick = {
                     val validBefore = before.mapNotNull { it.toDoubleOrNull() }.firstOrNull { it.isFinite() }?.let { heightToMeters(it, beforeUnit) }
                     if (beforeUnit == null) {
-                        status = "Confirme a unidade da altura BEFORE"
+                        status = heightUnitHint(before, beforeUnit) ?: "Confirme a unidade da altura BEFORE"
                     } else if (validBefore != null) {
                         occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = validBefore)
                         scope.launch {
@@ -762,6 +776,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("Registrar altura BEFORE") }
                 Text("Alturas AFTER")
                 Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
+                heightUnitHint(after, afterUnit)?.let { Text(it, color = fieldBlueDark) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) } } }
                 after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -771,7 +786,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }
                 Button(onClick = {
                     val values = after.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }
-                    if (afterUnit == null) status = "Confirme a unidade da altura AFTER" else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida" else scope.launch {
+                    if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura AFTER" else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida" else scope.launch {
                         values.forEach { value -> repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, HeightType.VERTICAL, Instant.now(), "unit=${afterUnit}")) }
                         status = "${values.size} altura(s) AFTER registrada(s)"
                     }
