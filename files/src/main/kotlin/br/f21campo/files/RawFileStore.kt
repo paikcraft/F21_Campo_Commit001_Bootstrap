@@ -25,7 +25,15 @@ class RawFileStore(private val controlledDirectory: File) {
                     FileOutputStream(temporary).use { output -> sourceInput.copyTo(output) }
                 }
                 check(temporary.length() == source.length()) { "copy size validation failed" }
+                FileInputStream(temporary).use { copiedInput ->
+                    check(Sha256.of(copiedInput) == hash) { "copy SHA-256 validation failed" }
+                }
                 if (temporary.renameTo(destination).not()) error("could not finalize raw file")
+            } else {
+                check(destination.length() == source.length()) { "existing content-addressed raw has unexpected size" }
+                FileInputStream(destination).use { existingInput ->
+                    check(Sha256.of(existingInput) == hash) { "existing content-addressed raw has unexpected SHA-256" }
+                }
             }
             return RawFileImport(destination, destination.length(), hash)
         }
