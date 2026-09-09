@@ -180,9 +180,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 scope.launch {
                                     val pending = repository.findIncompleteOccupations().firstOrNull()
                                     if (pending != null) {
+                                        val heights = repository.findHeights(pending.id)
                                         occupation = pending
                                         rawImported = repository.hasRawArtifact(pending.id)
-                                        afterRegistered = repository.hasHeight(pending.id, HeightPhase.AFTER)
+                                        before = heights.filter { it.phase == HeightPhase.BEFORE }.map { "%.4f".format(it.valueMeters) }.ifEmpty { before }
+                                        after = heights.filter { it.phase == HeightPhase.AFTER }.map { "%.4f".format(it.valueMeters) }.ifEmpty { after }
+                                        afterRegistered = heights.any { it.phase == HeightPhase.AFTER }
                                         status = "Rastreio recuperado: ${pending.state}"
                                         route = "NEW"
                                         newStep = 6

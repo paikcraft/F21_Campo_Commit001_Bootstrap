@@ -8,6 +8,8 @@ import br.f21campo.domain.ReferencePoint
 import br.f21campo.domain.Occupation
 import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.HeightMeasurement
+import br.f21campo.domain.HeightPhase
+import br.f21campo.domain.HeightType
 import java.time.Instant
 
 class ProjectStationRepository(
@@ -56,8 +58,19 @@ class ProjectStationRepository(
     }
 
     suspend fun hasRawArtifact(occupationId: EntityId): Boolean = artifactDao?.findByOccupation(occupationId.value)?.any { it.role == "RAW_RECEIVER" } == true
-    suspend fun hasHeight(occupationId: EntityId, phase: br.f21campo.domain.HeightPhase): Boolean =
+    suspend fun hasHeight(occupationId: EntityId, phase: HeightPhase): Boolean =
         heightDao?.findByOccupation(occupationId.value)?.any { it.phase == phase.name } == true
+
+    suspend fun findHeights(occupationId: EntityId): List<HeightMeasurement> =
+        heightDao?.findByOccupation(occupationId.value)?.map {
+            HeightMeasurement(
+                phase = HeightPhase.valueOf(it.phase),
+                valueMeters = it.valueMeters,
+                type = HeightType.valueOf(it.type),
+                observedAt = it.observedAtEpochMillis?.let(Instant::ofEpochMilli),
+                observation = it.observation,
+            )
+        }.orEmpty()
 
     suspend fun save(event: OccupationEvent): DomainResult<Unit> {
         val dao = eventDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("event", "DAO not configured"))
