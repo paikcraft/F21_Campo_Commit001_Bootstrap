@@ -125,6 +125,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var projects by remember { mutableStateOf(emptyList<br.f21campo.domain.Project>()) }
     var stations by remember { mutableStateOf(emptyList<Station>()) }
     var stationHistory by remember { mutableStateOf(emptyList<Occupation>()) }
+    var pendingOccupationSummary by remember { mutableStateOf<String?>(null) }
     var rawImported by remember { mutableStateOf(false) }
     var afterRegistered by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
@@ -190,6 +191,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
     LaunchedEffect(route) {
         if (route == "PROJECTS") projects = repository.findAllProjects()
         if (route == "STATIONS") stations = repository.findAllStations()
+        if (route == "HOME") {
+            val pending = repository.findIncompleteOccupations().firstOrNull()
+            pendingOccupationSummary = pending?.let {
+                val station = repository.findStation(it.stationId)
+                val reference = it.referencePointId?.let { id -> repository.findReferencePoint(id) }
+                listOfNotNull(
+                    station?.name,
+                    reference?.let { point -> "${point.type.name} ${point.code}" },
+                    it.state.name,
+                ).joinToString(" · ")
+            }
+        }
     }
     val fieldBlue = Color(0xFF0B4F71)
     val fieldBlueDark = Color(0xFF073653)
@@ -207,6 +220,46 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Text("F-21 Campo", color = Color.White, style = MaterialTheme.typography.headlineMedium)
                             Text("Aquisição e rastreio de referências", color = Color.White)
                             Text("Versão ${BuildConfig.VERSION_NAME} · funcionamento offline", color = Color(0xFFD5EAF5))
+                        }
+                    }
+                    if (pendingOccupationSummary != null) {
+                        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFE6F1F7)), modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("RASTREIO NÃO FINALIZADO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                                Text(pendingOccupationSummary ?: "")
+                                Button(onClick = {
+                                    scope.launch {
+                                        val pending = repository.findIncompleteOccupations().firstOrNull()
+                                        if (pending != null) {
+                                            val heights = repository.findHeights(pending.id)
+                                            val recoveredProject = repository.findProject(pending.projectId)
+                                            val recoveredStation = repository.findStation(pending.stationId)
+                                            val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
+                                            occupation = pending
+                                            projectName = recoveredProject?.name.orEmpty()
+                                            savedId = recoveredStation?.id
+                                            name = recoveredStation?.name.orEmpty()
+                                            locality = recoveredStation?.locality.orEmpty()
+                                            if (recoveredReference != null) {
+                                                referenceType = recoveredReference.type
+                                                referenceCode = recoveredReference.code
+                                            }
+                                            rawImported = repository.hasRawArtifact(pending.id)
+                                            val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
+                                            val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
+                                            beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: beforeUnit
+                                            afterUnit = afterHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: afterUnit
+                                            before = beforeHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, beforeUnit)) }.ifEmpty { before }
+                                            after = afterHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, afterUnit)) }.ifEmpty { after }
+                                            afterRegistered = heights.any { it.phase == HeightPhase.AFTER }
+                                            status = "Rastreio recuperado: ${pending.state}"
+                                            route = "NEW"
+                                            newStep = 6
+                                            showHome = false
+                                        }
+                                    }
+                                }, modifier = Modifier.fillMaxWidth()) { Text("CONTINUAR") }
+                            }
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
