@@ -169,6 +169,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var newStep by remember { mutableStateOf(1) }
     var projects by remember { mutableStateOf(emptyList<br.f21campo.domain.Project>()) }
     var stations by remember { mutableStateOf(emptyList<Station>()) }
+    var referencePoints by remember { mutableStateOf(emptyList<ReferencePoint>()) }
     var stationHistory by remember { mutableStateOf(emptyList<Occupation>()) }
     var pendingOccupationSummary by remember { mutableStateOf<String?>(null) }
     var rawImported by remember { mutableStateOf(false) }
@@ -273,6 +274,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
     LaunchedEffect(route, newStep) {
         if (route == "NEW" && newStep == 1) projects = repository.findAllProjects()
         if (route == "NEW" && newStep == 2) stations = repository.findAllStations()
+        if (route == "NEW" && newStep == 3) {
+            referencePoints = savedId?.let { repository.findReferencePointsByStation(it) }.orEmpty()
+        }
     }
     val fieldBlue = Color(0xFF0B4F71)
     val fieldBlueDark = Color(0xFF073653)
@@ -537,6 +541,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { ReferencePointType.entries.forEach { type -> Button(onClick = { referenceType = type }, enabled = referenceType != type) { Text(type.name) } } }
                     OutlinedTextField(referenceCode, { referenceCode = it }, label = { Text("Código da referência") })
                     Button(onClick = { val stationId = savedId; if (stationId == null || referenceCode.isBlank()) status = "Informe estação e código da referência" else { val point = ReferencePoint(EntityId.new(), stationId, referenceType, referenceCode.trim()); scope.launch { repository.save(point); occupation = occupation.copy(stationId = stationId, referencePointId = point.id); status = "Referência ${point.type}: ${point.code} registrada"; newStep = 4 } } }) { Text("SALVAR E AVANÇAR") }
+                    if (referencePoints.isNotEmpty()) {
+                        Text("OU SELECIONE UMA REFERÊNCIA DESTA ESTAÇÃO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                        referencePoints.forEach { point ->
+                            Button(onClick = {
+                                referenceType = point.type
+                                referenceCode = point.code
+                                occupation = occupation.copy(stationId = point.stationId, referencePointId = point.id)
+                                status = "Referência selecionada: ${point.type} ${point.code}"
+                                newStep = 4
+                            }, modifier = Modifier.fillMaxWidth()) { Text("${point.type} · ${point.code}") }
+                        }
+                    }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 4) {
                     Button(onClick = { newStep = 3 }) { Text("VOLTAR") }
