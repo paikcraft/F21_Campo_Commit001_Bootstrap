@@ -59,6 +59,11 @@ class ProjectStationRepository(
     }
 
     suspend fun hasRawArtifact(occupationId: EntityId): Boolean = artifactDao?.findByOccupation(occupationId.value)?.any { it.role == "RAW_RECEIVER" } == true
+    suspend fun rawArtifactSummary(occupationId: EntityId): String? =
+        artifactDao?.findByOccupation(occupationId.value)
+            ?.lastOrNull { it.role == "RAW_RECEIVER" }
+            ?.let { "${it.sha256.take(12)} · ${it.sizeBytes} bytes" }
+
     suspend fun hasHeight(occupationId: EntityId, phase: HeightPhase): Boolean =
         heightDao?.findByOccupation(occupationId.value)?.any { it.phase == phase.name } == true
 

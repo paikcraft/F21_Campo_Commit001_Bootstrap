@@ -127,6 +127,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var stationHistory by remember { mutableStateOf(emptyList<Occupation>()) }
     var pendingOccupationSummary by remember { mutableStateOf<String?>(null) }
     var rawImported by remember { mutableStateOf(false) }
+    var rawSummary by remember { mutableStateOf<String?>(null) }
     var afterRegistered by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
     var connectionTransport by remember { mutableStateOf(ReceiverTransportType.WIFI_TCP) }
@@ -148,6 +149,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
             scope.launch {
                 repository.saveRawArtifact(occupation.id, stored.path.absolutePath, stored.sizeBytes, stored.sha256)
                 rawImported = true
+                rawSummary = "${stored.sha256.take(12)} · ${stored.sizeBytes} bytes"
                 status = "Bruto RAW_RECEIVER importado: ${stored.sha256.take(12)}…"
             }
         }
@@ -175,6 +177,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         referenceCode = ""
         referenceType = ReferencePointType.RN
         rawImported = false
+        rawSummary = null
         durationMinutes = ""
         route = "NEW"
         newStep = 1
@@ -245,6 +248,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                                 referenceCode = recoveredReference.code
                                             }
                                             rawImported = repository.hasRawArtifact(pending.id)
+                                            rawSummary = repository.rawArtifactSummary(pending.id)
                                             val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
                                             val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
                                             beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: beforeUnit
@@ -285,6 +289,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                             referenceCode = recoveredReference.code
                                         }
                                         rawImported = repository.hasRawArtifact(pending.id)
+                                        rawSummary = repository.rawArtifactSummary(pending.id)
                                         val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
                                         val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
                                         beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: beforeUnit
@@ -591,7 +596,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR AFTER") }
                     Button(onClick = { rawPicker.launch("*/*") }) { Text("ANEXAR RAW DO CELULAR") }
-                    Text(if (rawImported) "RAW_RECEIVER associado com SHA-256" else "RAW pendente: selecione o arquivo já salvo no celular")
+                    Text(if (rawImported) "RAW_RECEIVER: ${rawSummary ?: "associado com SHA-256"}" else "RAW pendente: selecione o arquivo já salvo no celular")
                     Text(if (afterRegistered) "Altura AFTER registrada" else "Altura AFTER pendente")
                     Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = { val result = OccupationStateMachine.collect(occupation, true); if (result is DomainResult.Success) occupation = result.value }) { Text("FINALIZAR COLETA") }
                     Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("VALIDAR RASTREIO") }
@@ -672,6 +677,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     afterUndo = emptyList()
                     event = ""
                     rawImported = false
+                    rawSummary = null
                     afterRegistered = false
                     status = "Nova ocupação criada"
                 }) { Text("Nova ocupação") }
