@@ -58,6 +58,7 @@ class ProjectStationRepository(
     }
 
     suspend fun findIncompleteOccupations(): List<Occupation> = occupationDao?.findIncomplete()?.map(OccupationEntity::toDomain).orEmpty()
+    suspend fun findOccupation(id: EntityId): Occupation? = occupationDao?.findById(id.value)?.toDomain()
     suspend fun findOccupationsByStation(stationId: EntityId): List<Occupation> = occupationDao?.findByStation(stationId.value)?.map(OccupationEntity::toDomain).orEmpty()
 
     suspend fun saveRawArtifact(occupationId: EntityId, path: String, sizeBytes: Long, sha256: String): DomainResult<Unit> {

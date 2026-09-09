@@ -172,6 +172,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var stations by remember { mutableStateOf(emptyList<Station>()) }
     var referencePoints by remember { mutableStateOf(emptyList<ReferencePoint>()) }
     var stationHistory by remember { mutableStateOf(emptyList<Occupation>()) }
+    var reviewedOccupation by remember { mutableStateOf<Occupation?>(null) }
+    var reviewedProjectName by remember { mutableStateOf("") }
+    var reviewedStationName by remember { mutableStateOf("") }
+    var reviewedReference by remember { mutableStateOf<ReferencePoint?>(null) }
+    var reviewedHeights by remember { mutableStateOf(emptyList<HeightMeasurement>()) }
+    var reviewedEvents by remember { mutableStateOf(emptyList<OccupationEvent>()) }
+    var reviewedRawSummary by remember { mutableStateOf<String?>(null) }
     var pendingOccupationSummary by remember { mutableStateOf<String?>(null) }
     var rawImported by remember { mutableStateOf(false) }
     var rawSummary by remember { mutableStateOf<String?>(null) }
@@ -423,15 +430,58 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         if (stationHistory.isEmpty()) Text("Nenhum rastreio registrado para esta estação")
                         stationHistory.forEach { item ->
                             Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(12.dp)) {
+                                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text("Estado: ${item.state}", style = MaterialTheme.typography.titleSmall)
                                     Text("Início: ${item.confirmedStart ?: item.plannedStart ?: "não iniciado"}")
                                     Text("Fim: ${item.confirmedStop ?: "em aberto"}")
+                                    Button(onClick = {
+                                        scope.launch {
+                                            val current = repository.findOccupation(item.id) ?: return@launch
+                                            reviewedOccupation = current
+                                            reviewedProjectName = repository.findProject(current.projectId)?.name.orEmpty()
+                                            reviewedStationName = repository.findStation(current.stationId)?.name.orEmpty()
+                                            reviewedReference = current.referencePointId?.let { repository.findReferencePoint(it) }
+                                            reviewedHeights = repository.findHeights(current.id)
+                                            reviewedEvents = repository.findEvents(current.id)
+                                            reviewedRawSummary = repository.rawArtifactSummary(current.id)
+                                            route = "SUMMARY"
+                                        }
+                                    }, modifier = Modifier.fillMaxWidth()) { Text("VER RASTREIO") }
                                 }
                             }
                         }
                     }
                     Text(status)
+                } else if (route == "SUMMARY") {
+                    val reviewed = reviewedOccupation
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("RESUMO DO RASTREIO", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                            Text("Dados recuperados do armazenamento local", color = Color(0xFFD5EAF5))
+                        }
+                    }
+                    Button(onClick = { route = "STATIONS" }) { Text("← BANCO DE ESTAÇÕES") }
+                    if (reviewed == null) {
+                        Text("Nenhum rastreio selecionado")
+                    } else {
+                        Text("Projeto/LH: ${reviewedProjectName.ifBlank { "não localizado" }}")
+                        Text("Estação: ${reviewedStationName.ifBlank { "não localizada" }}")
+                        Text("Referência: ${reviewedReference?.let { "${it.type} ${it.code}" } ?: "não registrada"}")
+                        Text("Status: ${reviewed.state}")
+                        Text("Início: ${reviewed.confirmedStart ?: "não iniciado"}")
+                        Text("Fim: ${reviewed.confirmedStop ?: "em aberto"}")
+                        Text("Receptor: ${reviewed.equipment?.receiver?.model ?: "não informado"}")
+                        Text("Antena: ${reviewed.equipment?.antenna?.model ?: "não informada"}")
+                        Text("ALTURAS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                        if (reviewedHeights.isEmpty()) Text("Nenhuma altura registrada")
+                        reviewedHeights.groupBy { it.phase }.forEach { (phase, values) ->
+                            Text("$phase: ${values.joinToString { "%.4f m".format(it.valueMeters) }}")
+                        }
+                        Text("EVENTOS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                        if (reviewedEvents.isEmpty()) Text("Nenhum evento registrado")
+                        reviewedEvents.forEach { savedEvent -> Text("${savedEvent.at}: ${savedEvent.description}") }
+                        Text("RAW_RECEIVER: ${reviewedRawSummary ?: "não associado"}")
+                    }
                 } else if (route == "SETTINGS") {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAÇÕES", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp)) }
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
