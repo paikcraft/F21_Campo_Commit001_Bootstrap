@@ -142,12 +142,6 @@ private fun StationScreen(repository: ProjectStationRepository) {
         }
     }
     LaunchedEffect(occupation) { repository.save(occupation) }
-    LaunchedEffect(before) {
-        val firstValidBefore = before.mapNotNull { it.toDoubleOrNull() }.firstOrNull { it.isFinite() }?.let { heightToMeters(it, beforeUnit) }
-        if (firstValidBefore != null && occupation.beforeHeightMeters != firstValidBefore) {
-            occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = firstValidBefore)
-        }
-    }
     LaunchedEffect(occupation.state, occupation.confirmedStart) {
         while (occupation.state == OccupationState.ACTIVE) {
             nowEpochMillis = System.currentTimeMillis()
@@ -345,7 +339,25 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Selecionada: ${beforeUnit ?: "nenhuma — selecione uma unidade"}")
                     before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }; Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") } }
-                    Button(onClick = { val valid = before.mapNotNull(String::toDoubleOrNull).firstOrNull { it.isFinite() }?.let { heightToMeters(it, beforeUnit) }; if (beforeUnit == null) status = "Confirme a unidade da altura BEFORE" else if (valid == null) status = "Informe uma altura BEFORE válida" else { occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = valid); status = "BEFORE registrado em ${beforeUnit} — pronto para READY"; newStep = 6 } }) { Text("REGISTRAR BEFORE E AVANÇAR") }
+                    Button(onClick = {
+                        val values = before.mapNotNull(String::toDoubleOrNull).filter { it.isFinite() }
+                        val firstValid = values.firstOrNull()?.let { heightToMeters(it, beforeUnit) }
+                        if (beforeUnit == null) {
+                            status = "Confirme a unidade da altura BEFORE"
+                        } else if (firstValid == null) {
+                            status = "Informe uma altura BEFORE válida"
+                        } else {
+                            val currentOccupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = firstValid)
+                            occupation = currentOccupation
+                            scope.launch {
+                                values.forEach { value ->
+                                    repository.saveHeight(currentOccupation.id, HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, HeightType.VERTICAL, Instant.now(), "unit=${beforeUnit}"))
+                                }
+                                status = "${values.size} altura(s) BEFORE registrada(s) em ${beforeUnit} — pronto para READY"
+                                newStep = 6
+                            }
+                        }
+                    }) { Text("REGISTRAR BEFORE E AVANÇAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 6) {
                     Button(onClick = { newStep = 5 }) { Text("VOLTAR") }
