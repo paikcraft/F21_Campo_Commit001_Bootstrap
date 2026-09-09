@@ -716,8 +716,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }
                 Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" } }) { Text("INICIAR") }
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
-                Button(enabled = occupation.state == OccupationState.STOPPED && rawImported, onClick = {
-                    val result = OccupationStateMachine.collect(occupation, hasRawEvidence = rawImported)
+                Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
+                    val result = OccupationStateMachine.collectWithEvidence(occupation, hasRawEvidence = rawImported, hasAfterHeight = afterRegistered)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Coleta finalizada — pronta para resumo" }
                 }) { Text("FINALIZAR COLETA") }
                 Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = {
