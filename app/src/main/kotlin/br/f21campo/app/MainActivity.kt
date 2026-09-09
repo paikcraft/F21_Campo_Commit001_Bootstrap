@@ -527,6 +527,39 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio iniciado" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR RASTREIO") }
                     Text(status)
+                } else if (route == "NEW" && occupation.state == OccupationState.ACTIVE) {
+                    Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
+                    Text("RASTREIO ATIVO", style = MaterialTheme.typography.headlineSmall)
+                    Text("ETAPA 6/7 · CAMPO", style = MaterialTheme.typography.titleMedium)
+                    val activeElapsed = occupation.confirmedStart?.let { ((nowEpochMillis - it.toEpochMilli()).coerceAtLeast(0) / 1000) }
+                    val target = occupation.plannedDurationSeconds
+                    val reached = activeElapsed != null && target != null && activeElapsed >= target
+                    Card(colors = CardDefaults.cardColors(containerColor = if (reached) Color(0xFFFFF4D6) else Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Status: ACTIVE", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Referência: ${referenceType.name} ${referenceCode.ifBlank { "selecionada" }}")
+                            Text("Cronômetro: ${activeElapsed?.let { "${it / 60}m ${it % 60}s" } ?: "aguardando"}")
+                            Text("Meta: ${target?.let { "${it / 60} min" } ?: "indefinida"}")
+                            if (reached) Text("ALERTA: tempo planejado cumprido")
+                            Text("Receptor: ${occupation.equipment?.receiver?.model ?: receiverModel.ifBlank { "manual" }}")
+                            Text("Antena: ${occupation.equipment?.antenna?.model ?: antennaModel.ifBlank { "manual" }}")
+                        }
+                    }
+                    OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") }, modifier = Modifier.fillMaxWidth())
+                    Button(onClick = {
+                        if (event.isNotBlank()) {
+                            scope.launch {
+                                repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), OccupationEventCategory.NOTE, EventSeverity.INFO, event.trim()))
+                                event = ""
+                                status = "Evento registrado"
+                            }
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR EVENTO") }
+                    Button(onClick = {
+                        val result = OccupationStateMachine.stop(occupation, Instant.now())
+                        if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — finalização" }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("PARAR RASTREIO") }
+                    Text(status)
                 } else if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
                     Text("FINALIZAÇÃO", style = MaterialTheme.typography.headlineSmall)
                     Text("Referência: ${referenceCode.ifBlank { "ocupação recuperada" }}")
