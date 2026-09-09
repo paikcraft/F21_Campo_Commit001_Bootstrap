@@ -10,6 +10,9 @@ import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.HeightMeasurement
 import br.f21campo.domain.HeightPhase
 import br.f21campo.domain.HeightType
+import br.f21campo.domain.OccupationEventCategory
+import br.f21campo.domain.EventSeverity
+import br.f21campo.domain.ProvenanceSource
 import java.time.Instant
 
 class ProjectStationRepository(
@@ -83,6 +86,20 @@ class ProjectStationRepository(
         dao.upsert(OccupationEventEntity(event.id.value, event.occupationId.value, event.at.toEpochMilli(), event.category.name, event.severity.name, event.description, event.source.name))
         return DomainResult.Success(Unit)
     }
+
+    /** Field events are persisted evidence and can be recovered with the occupation. */
+    suspend fun findEvents(occupationId: EntityId): List<OccupationEvent> =
+        eventDao?.findByOccupation(occupationId.value)?.map {
+            OccupationEvent(
+                id = EntityId(it.id),
+                occupationId = EntityId(it.occupationId),
+                at = Instant.ofEpochMilli(it.atEpochMillis),
+                category = OccupationEventCategory.valueOf(it.category),
+                severity = EventSeverity.valueOf(it.severity),
+                description = it.description,
+                source = ProvenanceSource.valueOf(it.source),
+            )
+        }.orEmpty()
 
     suspend fun saveHeight(occupationId: EntityId, measurement: HeightMeasurement): DomainResult<Unit> {
         val dao = heightDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("height", "DAO not configured"))

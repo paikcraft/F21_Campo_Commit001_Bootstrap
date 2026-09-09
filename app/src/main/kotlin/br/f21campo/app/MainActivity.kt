@@ -141,6 +141,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var beforeUnit by remember { mutableStateOf<String?>(null) }
     var afterUnit by remember { mutableStateOf<String?>(null) }
     var event by remember { mutableStateOf("") }
+    var fieldEvents by remember { mutableStateOf(emptyList<OccupationEvent>()) }
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
     var showHome by remember { mutableStateOf(true) }
@@ -211,6 +212,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         status = "Etapa 1/7 — Projeto"
     }
     LaunchedEffect(occupation) { repository.save(occupation) }
+    LaunchedEffect(occupation.id) { fieldEvents = repository.findEvents(occupation.id) }
     LaunchedEffect(occupation.state, occupation.confirmedStart) {
         while (occupation.state == OccupationState.ACTIVE) {
             nowEpochMillis = System.currentTimeMillis()
@@ -586,11 +588,22 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         if (event.isNotBlank()) {
                             scope.launch {
                                 repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), OccupationEventCategory.NOTE, EventSeverity.INFO, event.trim()))
+                                fieldEvents = repository.findEvents(occupation.id)
                                 event = ""
                                 status = "Evento registrado"
                             }
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR EVENTO") }
+                    if (fieldEvents.isNotEmpty()) {
+                        Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("EVENTOS REGISTRADOS (${fieldEvents.size})", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                fieldEvents.takeLast(3).forEach { savedEvent ->
+                                    Text("${savedEvent.at}: ${savedEvent.description}")
+                                }
+                            }
+                        }
+                    }
                     Button(onClick = {
                         val result = OccupationStateMachine.stop(occupation, Instant.now())
                         if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — finalização" }
@@ -636,6 +649,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }) { Text("FINALIZAR COLETA") }
                     Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("VALIDAR RASTREIO") }
                     Text("Resumo: início ${occupation.confirmedStart ?: "—"} · fim ${occupation.confirmedStop ?: "—"}")
+                    if (fieldEvents.isNotEmpty()) Text("Eventos registrados: ${fieldEvents.size}")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                         Button(onClick = { startNewTracking() }) { Text("NOVO RASTREIO") }
