@@ -832,7 +832,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Text("Status: ${occupation.state}", color = Color(0xFFD5EAF5))
                         }
                     }
-                    Text("Registre as alturas AFTER e anexe o arquivo original copiado do receptor.")
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("PRÓXIMOS ITENS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                            Text("1. Registre as alturas AFTER.")
+                            Text("2. Selecione o arquivo RAW já copiado para o celular.")
+                            Text("3. Finalize a coleta após as duas evidências.")
+                        }
+                    }
                     Text("Alturas AFTER")
                     Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
                     heightUnitHint(after, afterUnit)?.let { Text(it, color = fieldBlueDark) }
@@ -859,7 +866,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             status = "${values.size} altura(s) AFTER registrada(s) em ${afterUnit}"
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR AFTER") }
-                    Button(onClick = { rawPicker.launch("*/*") }) { Text("ANEXAR RAW DO CELULAR") }
+                    Button(onClick = { rawPicker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) { Text("SELECIONAR RAW JÁ COPIADO") }
                     Text(if (rawImported) "RAW_RECEIVER: ${rawSummary ?: "associado com SHA-256"}" else "RAW pendente: selecione o arquivo já salvo no celular")
                     Text(if (afterRegistered) "Altura AFTER registrada" else "Altura AFTER pendente")
                     Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
