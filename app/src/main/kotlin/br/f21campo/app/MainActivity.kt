@@ -97,6 +97,17 @@ private fun heightUnitHint(readings: List<String>, selectedUnit: String?): Strin
     }
 }
 
+@Composable
+private fun StepHeader(step: Int, title: String, detail: String, fieldBlueDark: Color) {
+    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("NOVO RASTREIO", color = Color.White, style = MaterialTheme.typography.titleLarge)
+            Text("ETAPA $step/7 · $title", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            Text(detail, color = Color(0xFFD5EAF5))
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -442,32 +453,27 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Fluxo manual de rastreio, persistência e proveniência.")
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 1) {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
-                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
-                    Text("ETAPA 1/7 · PROJETO", style = MaterialTheme.typography.titleMedium)
-                    Text("Identifique a comissão ou trabalho de campo.")
+                    StepHeader(1, "PROJETO", "Identifique a comissão ou trabalho de campo.", fieldBlueDark)
                     OutlinedTextField(projectName, { projectName = it }, label = { Text("Nome do projeto/LH") })
                     Button(onClick = { if (projectName.isBlank()) status = "Informe o nome do projeto/LH" else { scope.launch { val project = br.f21campo.domain.Project(EntityId.new(), projectName.trim(), Instant.now()); repository.save(project); occupation = occupation.copy(projectId = project.id); status = "Projeto salvo localmente"; newStep = 2 } } }) { Text("SALVAR E AVANÇAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 2) {
                     Button(onClick = { newStep = 1 }) { Text("VOLTAR") }
-                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
-                    Text("ETAPA 2/7 · ESTAÇÃO", style = MaterialTheme.typography.titleMedium)
+                    StepHeader(2, "ESTAÇÃO", "Informe a estação desta ocasião de campo.", fieldBlueDark)
                     OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
                     OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") })
                     Button(onClick = { if (name.isBlank() || locality.isBlank()) status = "Informe o nome da estação e a localidade" else { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name.trim(), locality.trim(), null, Instant.now())); status = "Estação salva — ID preservado"; newStep = 3 } } }) { Text("SALVAR E AVANÇAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 3) {
                     Button(onClick = { newStep = 2 }) { Text("VOLTAR") }
-                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
-                    Text("ETAPA 3/7 · REFERÊNCIA", style = MaterialTheme.typography.titleMedium)
+                    StepHeader(3, "REFERÊNCIA", "Escolha RN, MT ou PA e registre o código.", fieldBlueDark)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { ReferencePointType.entries.forEach { type -> Button(onClick = { referenceType = type }, enabled = referenceType != type) { Text(type.name) } } }
                     OutlinedTextField(referenceCode, { referenceCode = it }, label = { Text("Código da referência") })
                     Button(onClick = { val stationId = savedId; if (stationId == null || referenceCode.isBlank()) status = "Informe estação e código da referência" else { val point = ReferencePoint(EntityId.new(), stationId, referenceType, referenceCode.trim()); scope.launch { repository.save(point); occupation = occupation.copy(stationId = stationId, referencePointId = point.id); status = "Referência ${point.type}: ${point.code} registrada"; newStep = 4 } } }) { Text("SALVAR E AVANÇAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 4) {
                     Button(onClick = { newStep = 3 }) { Text("VOLTAR") }
-                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
-                    Text("ETAPA 4/7 · EQUIPAMENTO", style = MaterialTheme.typography.titleMedium)
+                    StepHeader(4, "EQUIPAMENTO", "Informe receptor e antena usados nesta ocupação.", fieldBlueDark)
                     OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
                     OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante do receptor") })
                     OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Nº de série do receptor") })
@@ -480,9 +486,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 5) {
                     Button(onClick = { newStep = 4 }) { Text("VOLTAR") }
-                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
-                    Text("ETAPA 5/7 · ALTURAS BEFORE", style = MaterialTheme.typography.titleMedium)
-                    Text("Registre pelo menos uma leitura antes de iniciar.")
+                    StepHeader(5, "ALTURAS BEFORE", "Registre pelo menos uma leitura antes de iniciar.", fieldBlueDark)
                     Text("UNIDADE DA ALTURA", style = MaterialTheme.typography.labelLarge)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
                     Text("Selecionada: ${beforeUnit ?: "nenhuma — selecione uma unidade"}")
@@ -511,8 +515,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 6) {
                     Button(onClick = { newStep = 5 }) { Text("VOLTAR") }
-                    Text("NOVO RASTREIO", style = MaterialTheme.typography.headlineSmall)
-                    Text("ETAPA 6/7 · PREPARO", style = MaterialTheme.typography.titleMedium)
+                    StepHeader(6, "PREPARO", "Confira os requisitos antes de iniciar.", fieldBlueDark)
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Checklist para iniciar", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
