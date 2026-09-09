@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -210,6 +211,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     DisposableEffect(tcpTransport) {
         onDispose { tcpTransport.close() }
+    }
+    BackHandler(enabled = route != "HOME") {
+        if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep > 1) {
+            newStep -= 1
+        } else {
+            route = "HOME"
+            showHome = true
+        }
     }
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
