@@ -117,6 +117,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var stations by remember { mutableStateOf(emptyList<Station>()) }
     var stationHistory by remember { mutableStateOf(emptyList<Occupation>()) }
     var rawImported by remember { mutableStateOf(false) }
+    var afterRegistered by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
     var connectionTransport by remember { mutableStateOf(ReceiverTransportType.WIFI_TCP) }
     var connectionHost by remember { mutableStateOf("") }
@@ -415,20 +416,39 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Status: ${occupation.state}")
                     Text("Registre as alturas AFTER e anexe o arquivo original copiado do receptor.")
                     Text("Alturas AFTER")
+                    Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("mm", "cm", "m").forEach { unit ->
+                            Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) }
+                        }
+                    }
                     after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ AFTER") }
                         Button(enabled = after.size > 1, onClick = { afterUndo = afterUndo + listOf(after); after = after.dropLast(1) }) { Text("−") }
                         Button(enabled = afterUndo.isNotEmpty(), onClick = { after = afterUndo.last(); afterUndo = afterUndo.dropLast(1) }) { Text("DESFAZER") }
                     }
+                    Button(onClick = {
+                        val values = after.mapNotNull(String::toDoubleOrNull).filter { it.isFinite() }
+                        if (afterUnit == null) status = "Confirme a unidade da altura AFTER"
+                        else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida"
+                        else scope.launch {
+                            values.forEach { value ->
+                                repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, HeightType.VERTICAL, Instant.now(), "unit=${afterUnit}"))
+                            }
+                            afterRegistered = true
+                            status = "${values.size} altura(s) AFTER registrada(s) em ${afterUnit}"
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR AFTER") }
                     Button(onClick = { rawPicker.launch("*/*") }) { Text("ANEXAR RAW DO CELULAR") }
                     Text(if (rawImported) "RAW_RECEIVER associado com SHA-256" else "RAW pendente: selecione o arquivo já salvo no celular")
-                    Button(enabled = occupation.state == OccupationState.STOPPED && rawImported, onClick = { val result = OccupationStateMachine.collect(occupation, true); if (result is DomainResult.Success) occupation = result.value }) { Text("FINALIZAR COLETA") }
+                    Text(if (afterRegistered) "Altura AFTER registrada" else "Altura AFTER pendente")
+                    Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = { val result = OccupationStateMachine.collect(occupation, true); if (result is DomainResult.Success) occupation = result.value }) { Text("FINALIZAR COLETA") }
                     Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("VALIDAR RASTREIO") }
                     Text("Resumo: início ${occupation.confirmedStart ?: "—"} · fim ${occupation.confirmedStop ?: "—"}")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
-                        Button(onClick = { occupation = Occupation(EntityId.new(), occupation.projectId, occupation.stationId); before = listOf(""); after = listOf(""); beforeUnit = null; afterUnit = null; rawImported = false; newStep = 1; route = "NEW"; status = "Novo rastreio" }) { Text("NOVO RASTREIO") }
+                        Button(onClick = { occupation = Occupation(EntityId.new(), occupation.projectId, occupation.stationId); before = listOf(""); after = listOf(""); beforeUnit = null; afterUnit = null; rawImported = false; afterRegistered = false; newStep = 1; route = "NEW"; status = "Novo rastreio" }) { Text("NOVO RASTREIO") }
                     }
                 } else {
                 Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
@@ -502,6 +522,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     afterUndo = emptyList()
                     event = ""
                     rawImported = false
+                    afterRegistered = false
                     status = "Nova ocupação criada"
                 }) { Text("Nova ocupação") }
                 OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
