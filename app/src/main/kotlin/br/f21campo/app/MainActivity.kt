@@ -57,11 +57,13 @@ import br.f21campo.domain.EventSeverity
 import br.f21campo.domain.HeightMeasurement
 import br.f21campo.domain.TrackingTimer
 import br.f21campo.receiver.api.ReceiverTransportType
+import br.f21campo.receiver.api.TcpReceiverTransport
 import br.f21campo.receiver.manual.ManualReceiverConnection
 import java.time.Instant
 import java.io.File
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.rememberScrollState
@@ -69,6 +71,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.withContext
 
 private fun heightToMeters(value: Double, unit: String?): Double? = when (unit) {
     "mm" -> value / 1000.0
@@ -180,6 +183,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var connectionNotes by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
     val manualConnection = remember { ManualReceiverConnection() }
+    val tcpTransport = remember { TcpReceiverTransport() }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val rawPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -452,19 +456,31 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             ReceiverTransportType.BLUETOOTH -> listOf(bluetoothName.trim(), bluetoothMac.trim()).filter { it.isNotBlank() }.joinToString(" · ")
                             ReceiverTransportType.UNKNOWN -> ""
                         }
-                        val result = manualConnection.connect(endpoint)
-                        connectionStatus = "${result.state}: ${result.message ?: "sem mensagem"}"
-                        status = "Perfil de conexão registrado para bancada"
-                    }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR PERFIL / TESTAR LIMITE") }
+                        scope.launch {
+                            val result = if (connectionTransport == ReceiverTransportType.WIFI_TCP) {
+                                withContext(Dispatchers.IO) { tcpTransport.connect(connectionHost.trim(), connectionPort.toIntOrNull() ?: 0) }
+                            } else {
+                                manualConnection.connect(endpoint)
+                            }
+                            connectionStatus = "${result.state}: ${result.message ?: "sem mensagem"}"
+                            status = if (result.state == br.f21campo.receiver.api.ReceiverConnectionState.CONNECTED) {
+                                "TCP alcançável — nenhum comando Spectra foi enviado"
+                            } else "Perfil de conexão registrado para bancada"
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("TESTAR CONEXÃO / REGISTRAR PERFIL") }
                     Button(onClick = {
-                        val result = manualConnection.disconnect()
-                        connectionStatus = "${result.state}: ${result.message ?: "sem mensagem"}"
+                        scope.launch {
+                            val result = if (connectionTransport == ReceiverTransportType.WIFI_TCP) {
+                                withContext(Dispatchers.IO) { tcpTransport.close() }
+                            } else manualConnection.disconnect()
+                            connectionStatus = "${result.state}: ${result.message ?: "sem mensagem"}"
+                        }
                     }, modifier = Modifier.fillMaxWidth()) { Text("DESCONECTAR") }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Estado", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                             Text(connectionStatus)
-                            Text("Sem comandos Spectra automáticos nesta versão. Porta, framing, handshake e respostas dependem de validação física.")
+                            Text("No Wi-Fi/TCP, o app testa somente se a porta aceita conexão. Não envia RID, START, STOP nem outro comando Spectra. Porta, framing, handshake e respostas dependem de validação física.")
                         }
                     }
                 } else if (route == "ABOUT") {
