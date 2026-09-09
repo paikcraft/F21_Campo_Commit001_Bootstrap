@@ -33,6 +33,7 @@ class ProjectStationRepository(
 
     suspend fun findProject(id: EntityId): Project? = projectDao.findById(id.value)?.toDomain()
     suspend fun findStation(id: EntityId): Station? = stationDao.findById(id.value)?.toDomain()
+    suspend fun findReferencePoint(id: EntityId): ReferencePoint? = referencePointDao?.findById(id.value)?.toDomain()
     suspend fun findAllProjects(): List<Project> = projectDao.findAll().map(ProjectEntity::toDomain)
     suspend fun findAllStations(): List<Station> = stationDao.findAll().map(StationEntity::toDomain)
 

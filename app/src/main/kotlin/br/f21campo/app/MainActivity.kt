@@ -219,7 +219,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     val pending = repository.findIncompleteOccupations().firstOrNull()
                                     if (pending != null) {
                                         val heights = repository.findHeights(pending.id)
+                                        val recoveredProject = repository.findProject(pending.projectId)
+                                        val recoveredStation = repository.findStation(pending.stationId)
+                                        val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
                                         occupation = pending
+                                        projectName = recoveredProject?.name.orEmpty()
+                                        savedId = recoveredStation?.id
+                                        name = recoveredStation?.name.orEmpty()
+                                        locality = recoveredStation?.locality.orEmpty()
+                                        if (recoveredReference != null) {
+                                            referenceType = recoveredReference.type
+                                            referenceCode = recoveredReference.code
+                                        }
                                         rawImported = repository.hasRawArtifact(pending.id)
                                         val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
                                         val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
