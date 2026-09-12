@@ -355,6 +355,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
         if (route == "NEW" && newStep == 3) {
             referencePoints = savedId?.let { repository.findReferencePointsByStation(it) }.orEmpty()
         }
+        if (route == "NEW" && newStep == 4) {
+            favoriteReceiverProfiles = repository.findFavoriteReceiverProfiles()
+        }
         if (route == "CONNECTION") {
             connectionProfiles = repository.findConnectionProfiles()
             favoriteReceiverProfiles = repository.findFavoriteReceiverProfiles()
@@ -849,6 +852,24 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 4) {
                     Button(onClick = { newStep = 3 }) { Text("VOLTAR") }
                     StepHeader(4, "EQUIPAMENTO", "Informe receptor e antena usados nesta ocupação.", fieldBlueDark)
+                    if (favoriteReceiverProfiles.isNotEmpty()) {
+                        Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("RECEPTOR GNSS FAVORITO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                Text("Escolha um perfil para preencher o receptor desta ocupação. A origem permanece informada pelo operador.")
+                                favoriteReceiverProfiles.forEach { profile ->
+                                    OutlinedButton(onClick = {
+                                        receiverManufacturer = profile.receiverManufacturer.orEmpty()
+                                        receiverModel = profile.receiverModel.orEmpty()
+                                        receiverSerial = profile.receiverSerial.orEmpty()
+                                        status = "Receptor favorito selecionado: ${profile.receiverModel ?: "sem modelo"}"
+                                    }, modifier = Modifier.fillMaxWidth()) {
+                                        Text(listOfNotNull(profile.receiverManufacturer, profile.receiverModel, profile.receiverSerial?.let { "S/N $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
+                                    }
+                                }
+                            }
+                        }
+                    }
                     OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
                     OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante do receptor") })
                     OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Nº de série do receptor") })
