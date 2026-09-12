@@ -218,6 +218,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var pairedBluetoothDevices by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     val discoveredBluetoothDevices = remember { mutableStateListOf<Pair<String, String>>() }
     var bluetoothDiscoveryStatus by remember { mutableStateOf("Ainda não consultado") }
+    var bluetoothServiceUuids by remember { mutableStateOf("") }
     var connectionNotes by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
     var connectionProfiles by remember { mutableStateOf(emptyList<ReceiverConnectionProfile>()) }
@@ -282,6 +283,21 @@ private fun StationScreen(repository: ProjectStationRepository) {
         val granted = permissions.values.all { it }
         bluetoothDiscoveryStatus = if (granted) "Permissões Bluetooth concedidas. Toque novamente para procurar ou listar receptores."
         else "Permissões Bluetooth negadas; não é possível procurar ou consultar dispositivos."
+    }
+    val inspectBluetoothServices: (String) -> Unit = { mac ->
+        val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        if (!permissionGranted) {
+            bluetoothServiceUuids = "Permissão BLUETOOTH_CONNECT necessária para consultar os serviços."
+        } else {
+            val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+            val device = adapter?.getRemoteDevice(mac)
+            @Suppress("DEPRECATION")
+            val uuids = device?.uuids?.map { it.uuid.toString() }.orEmpty()
+            bluetoothServiceUuids = if (uuids.isEmpty()) {
+                "Nenhum UUID anunciado no cache do Android. Isso não prova que o receptor não ofereça serviço; será necessário observar o pareamento/conexão."
+            } else uuids.joinToString("\n")
+        }
     }
     val startNewTracking = {
         name = ""
@@ -672,6 +688,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     OutlinedButton(onClick = {
                                         bluetoothName = deviceName
                                         bluetoothMac = mac
+                                        inspectBluetoothServices(mac)
                                         connectionStatus = "Dispositivo selecionado; transporte e protocolo ainda não homologados."
                                     }, modifier = Modifier.fillMaxWidth()) {
                                         Text("${deviceName.ifBlank { "Sem nome" }} · $mac")
@@ -683,11 +700,16 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         OutlinedButton(onClick = {
                                             bluetoothName = deviceName
                                             bluetoothMac = mac
+                                            inspectBluetoothServices(mac)
                                             connectionStatus = "Dispositivo selecionado. Pareie-o no Android antes de tentar a conexão de bancada."
                                         }, modifier = Modifier.fillMaxWidth()) {
                                             Text("${deviceName.ifBlank { "Sem nome" }} · $mac")
                                         }
                                     }
+                                }
+                                if (bluetoothServiceUuids.isNotBlank()) {
+                                    Text("SERVIÇOS BLUETOOTH OBSERVADOS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                    Text(bluetoothServiceUuids, style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
