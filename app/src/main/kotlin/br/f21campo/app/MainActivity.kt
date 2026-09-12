@@ -221,6 +221,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var pairedBluetoothDevices by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     val discoveredBluetoothDevices = remember { mutableStateListOf<Pair<String, String>>() }
     var bluetoothDiscoveryStatus by remember { mutableStateOf("Ainda não consultado") }
+    var bluetoothScanning by remember { mutableStateOf(false) }
     var bluetoothServiceUuids by remember { mutableStateOf("") }
     var bluetoothServiceUuidInput by remember { mutableStateOf("") }
     var bluetoothTransportStatus by remember { mutableStateOf("Canal Bluetooth não aberto") }
@@ -247,8 +248,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             discoveredBluetoothDevices += entry
                         }
                     }
-                    android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED ->
+                    android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                        bluetoothScanning = false
                         updateBluetoothDiscoveryStatus("Busca concluída. Para conectar, pareie o receptor nas configurações Android e depois selecione-o no F-21.")
+                    }
                 }
             }
         }
@@ -687,17 +690,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     else -> {
                                         if (adapter.isDiscovering) {
                                             adapter.cancelDiscovery()
+                                            bluetoothScanning = false
                                             bluetoothDiscoveryStatus = "Busca Bluetooth interrompida pelo operador."
                                         } else {
                                             discoveredBluetoothDevices.clear()
-                                            bluetoothDiscoveryStatus = if (adapter.startDiscovery()) "Procurando dispositivos Bluetooth próximos..." else "Não foi possível iniciar a busca Bluetooth."
+                                            bluetoothScanning = adapter.startDiscovery()
+                                            bluetoothDiscoveryStatus = if (bluetoothScanning) "Procurando dispositivos Bluetooth próximos..." else "Não foi possível iniciar a busca Bluetooth."
                                         }
                                     }
                                 }
                             }
                         }, modifier = Modifier.fillMaxWidth()) {
-                            val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
-                            Text(if (adapter?.isDiscovering == true) "PARAR BUSCA" else "PROCURAR DISPOSITIVOS PRÓXIMOS")
+                            Text(if (bluetoothScanning) "PARAR BUSCA" else "PROCURAR DISPOSITIVOS PRÓXIMOS")
                         }
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
