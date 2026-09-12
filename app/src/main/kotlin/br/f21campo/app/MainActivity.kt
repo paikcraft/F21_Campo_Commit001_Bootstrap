@@ -722,6 +722,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 }
                                 if (discoveredBluetoothDevices.isNotEmpty()) {
                                     Text("PRÓXIMOS ENCONTRADOS (${discoveredBluetoothDevices.size})", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                    OutlinedButton(
+                                        onClick = {
+                                            discoveredBluetoothDevices.clear()
+                                            bluetoothDiscoveryStatus = "Resultados próximos limpos. Inicie uma nova busca quando necessário."
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) { Text("LIMPAR RESULTADOS") }
                                     discoveredBluetoothDevices.forEach { (deviceName, mac) ->
                                         OutlinedButton(onClick = {
                                             bluetoothName = deviceName
