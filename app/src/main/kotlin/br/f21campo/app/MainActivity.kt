@@ -696,6 +696,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text("BLUETOOTH DE BANCADA", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                                 Text(bluetoothDiscoveryStatus)
+                                if (pairedBluetoothDevices.isNotEmpty()) {
+                                    Text("PAREADOS (${pairedBluetoothDevices.size})", style = MaterialTheme.typography.labelMedium, color = fieldBlueDark)
+                                }
                                 pairedBluetoothDevices.forEach { (deviceName, mac) ->
                                     OutlinedButton(onClick = {
                                         bluetoothName = deviceName
@@ -707,7 +710,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     }
                                 }
                                 if (discoveredBluetoothDevices.isNotEmpty()) {
-                                    Text("DISPOSITIVOS ENCONTRADOS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                    Text("PRÓXIMOS ENCONTRADOS (${discoveredBluetoothDevices.size})", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                                     discoveredBluetoothDevices.forEach { (deviceName, mac) ->
                                         OutlinedButton(onClick = {
                                             bluetoothName = deviceName
@@ -718,6 +721,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                             Text("${deviceName.ifBlank { "Sem nome" }} · $mac")
                                         }
                                     }
+                                } else if (bluetoothDiscoveryStatus.contains("concluída", ignoreCase = true)) {
+                                    Text("Nenhum dispositivo próximo foi encontrado. Mantenha o receptor ligado e tente novamente.", style = MaterialTheme.typography.bodySmall)
                                 }
                                 if (bluetoothServiceUuids.isNotBlank()) {
                                     Text("SERVIÇOS BLUETOOTH OBSERVADOS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
