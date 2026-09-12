@@ -92,4 +92,9 @@ object Migrations {
             database.execSQL("CREATE INDEX IF NOT EXISTS index_receiver_connection_profiles_isFavorite ON receiver_connection_profiles(isFavorite)")
         }
     }
+    val V14_TO_V15 = object : Migration(14, 15) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE receiver_connection_profiles ADD COLUMN bluetoothServiceUuid TEXT")
+        }
+    }
 }

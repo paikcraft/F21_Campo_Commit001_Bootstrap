@@ -161,7 +161,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10, Migrations.V10_TO_V11, Migrations.V11_TO_V12, Migrations.V12_TO_V13, Migrations.V13_TO_V14)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10, Migrations.V10_TO_V11, Migrations.V11_TO_V12, Migrations.V12_TO_V13, Migrations.V13_TO_V14, Migrations.V14_TO_V15)
             .build()
         setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao(), database.heightMeasurementDao(), database.receiverConnectionProfileDao())) }
     }
@@ -625,6 +625,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         connectionPort = profile.port?.toString().orEmpty()
                                         bluetoothName = profile.bluetoothName.orEmpty()
                                         bluetoothMac = profile.bluetoothMac.orEmpty()
+                                        bluetoothServiceUuidInput = profile.bluetoothServiceUuid.orEmpty()
                                         connectionNotes = profile.notes.orEmpty()
                                         connectionStatus = "Favorito carregado. Nenhum comando foi enviado ao receptor."
                                     }, modifier = Modifier.fillMaxWidth()) {
@@ -790,6 +791,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         port = connectionPort.toIntOrNull(),
                                         bluetoothName = bluetoothName.trim().ifBlank { null },
                                         bluetoothMac = bluetoothMac.trim().ifBlank { null },
+                                        bluetoothServiceUuid = bluetoothServiceUuidInput.trim().ifBlank { null },
                                         notes = connectionNotes.trim().ifBlank { null },
                                     ),
                                 )
@@ -817,6 +819,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         port = connectionPort.toIntOrNull(),
                                         bluetoothName = bluetoothName.trim().ifBlank { null },
                                         bluetoothMac = bluetoothMac.trim().ifBlank { null },
+                                        bluetoothServiceUuid = bluetoothServiceUuidInput.trim().ifBlank { null },
                                         notes = connectionNotes.trim().ifBlank { null },
                                     ),
                                 )
@@ -861,6 +864,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 connectionPort = profile.port?.toString().orEmpty()
                                 bluetoothName = profile.bluetoothName.orEmpty()
                                 bluetoothMac = profile.bluetoothMac.orEmpty()
+                                bluetoothServiceUuidInput = profile.bluetoothServiceUuid.orEmpty()
                                 connectionNotes = profile.notes.orEmpty()
                                 connectionStatus = "Perfil carregado; teste a conexão quando o receptor estiver acessível"
                             }, modifier = Modifier.fillMaxWidth()) {

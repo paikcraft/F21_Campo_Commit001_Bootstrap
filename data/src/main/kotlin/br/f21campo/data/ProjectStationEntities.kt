@@ -99,6 +99,7 @@ data class ReceiverConnectionProfileEntity(
     val port: Int?,
     val bluetoothName: String?,
     val bluetoothMac: String?,
+    val bluetoothServiceUuid: String?,
     val notes: String?,
     val savedAtEpochMillis: Long,
 )

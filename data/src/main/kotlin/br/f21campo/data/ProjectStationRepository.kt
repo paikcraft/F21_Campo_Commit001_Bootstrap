@@ -127,6 +127,7 @@ class ProjectStationRepository(
                 port = profile.port,
                 bluetoothName = profile.bluetoothName,
                 bluetoothMac = profile.bluetoothMac,
+                bluetoothServiceUuid = profile.bluetoothServiceUuid,
                 notes = profile.notes,
                 savedAtEpochMillis = Instant.now().toEpochMilli(),
             ),
@@ -146,6 +147,7 @@ class ProjectStationRepository(
                 port = it.port,
                 bluetoothName = it.bluetoothName,
                 bluetoothMac = it.bluetoothMac,
+                bluetoothServiceUuid = it.bluetoothServiceUuid,
                 notes = it.notes,
             )
         }.orEmpty()
@@ -162,6 +164,7 @@ class ProjectStationRepository(
                 port = it.port,
                 bluetoothName = it.bluetoothName,
                 bluetoothMac = it.bluetoothMac,
+                bluetoothServiceUuid = it.bluetoothServiceUuid,
                 notes = it.notes,
             )
         }.orEmpty()

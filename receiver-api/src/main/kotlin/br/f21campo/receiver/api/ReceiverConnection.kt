@@ -16,6 +16,7 @@ data class ReceiverConnectionProfile(
     val port: Int? = null,
     val bluetoothName: String? = null,
     val bluetoothMac: String? = null,
+    val bluetoothServiceUuid: String? = null,
     val notes: String? = null,
 )
 
