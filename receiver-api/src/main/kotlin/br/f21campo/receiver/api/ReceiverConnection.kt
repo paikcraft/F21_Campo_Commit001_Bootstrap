@@ -6,6 +6,11 @@ enum class ReceiverConnectionState { DISCONNECTED, CONNECTING, CONNECTED, FAILED
 enum class ReceiverTransportType { WIFI_TCP, BLUETOOTH, SERIAL, UNKNOWN }
 
 data class ReceiverConnectionProfile(
+    /** Operator-maintained receiver identity. No model or protocol is inferred by the app. */
+    val receiverManufacturer: String? = null,
+    val receiverModel: String? = null,
+    val receiverSerial: String? = null,
+    val isFavorite: Boolean = false,
     val transportType: ReceiverTransportType,
     val hostOrAddress: String? = null,
     val port: Int? = null,

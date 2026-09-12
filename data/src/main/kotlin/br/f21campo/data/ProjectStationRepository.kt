@@ -118,6 +118,10 @@ class ProjectStationRepository(
         dao.upsert(
             ReceiverConnectionProfileEntity(
                 id = EntityId.new().value,
+                receiverManufacturer = profile.receiverManufacturer,
+                receiverModel = profile.receiverModel,
+                receiverSerial = profile.receiverSerial,
+                isFavorite = profile.isFavorite,
                 transportType = profile.transportType.name,
                 hostOrAddress = profile.hostOrAddress,
                 port = profile.port,
@@ -133,6 +137,26 @@ class ProjectStationRepository(
     suspend fun findConnectionProfiles(): List<ReceiverConnectionProfile> =
         connectionProfileDao?.findAll()?.map {
             ReceiverConnectionProfile(
+                receiverManufacturer = it.receiverManufacturer,
+                receiverModel = it.receiverModel,
+                receiverSerial = it.receiverSerial,
+                isFavorite = it.isFavorite,
+                transportType = ReceiverTransportType.valueOf(it.transportType),
+                hostOrAddress = it.hostOrAddress,
+                port = it.port,
+                bluetoothName = it.bluetoothName,
+                bluetoothMac = it.bluetoothMac,
+                notes = it.notes,
+            )
+        }.orEmpty()
+
+    suspend fun findFavoriteReceiverProfiles(): List<ReceiverConnectionProfile> =
+        connectionProfileDao?.findFavorites()?.map {
+            ReceiverConnectionProfile(
+                receiverManufacturer = it.receiverManufacturer,
+                receiverModel = it.receiverModel,
+                receiverSerial = it.receiverSerial,
+                isFavorite = it.isFavorite,
                 transportType = ReceiverTransportType.valueOf(it.transportType),
                 hostOrAddress = it.hostOrAddress,
                 port = it.port,

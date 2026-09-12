@@ -151,7 +151,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
-            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10, Migrations.V10_TO_V11, Migrations.V11_TO_V12, Migrations.V12_TO_V13)
+            .addMigrations(Migrations.V1_TO_V2, Migrations.V2_TO_V3, Migrations.V3_TO_V4, Migrations.V4_TO_V5, Migrations.V5_TO_V6, Migrations.V6_TO_V7, Migrations.V7_TO_V8, Migrations.V8_TO_V9, Migrations.V9_TO_V10, Migrations.V10_TO_V11, Migrations.V11_TO_V12, Migrations.V12_TO_V13, Migrations.V13_TO_V14)
             .build()
         setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao(), database.heightMeasurementDao(), database.receiverConnectionProfileDao())) }
     }
@@ -213,6 +213,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var connectionNotes by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
     var connectionProfiles by remember { mutableStateOf(emptyList<ReceiverConnectionProfile>()) }
+    var favoriteReceiverProfiles by remember { mutableStateOf(emptyList<ReceiverConnectionProfile>()) }
     val manualConnection = remember { ManualReceiverConnection() }
     val tcpTransport = remember { TcpReceiverTransport() }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -318,7 +319,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
         if (route == "NEW" && newStep == 3) {
             referencePoints = savedId?.let { repository.findReferencePointsByStation(it) }.orEmpty()
         }
-        if (route == "CONNECTION") connectionProfiles = repository.findConnectionProfiles()
+        if (route == "CONNECTION") {
+            connectionProfiles = repository.findConnectionProfiles()
+            favoriteReceiverProfiles = repository.findFavoriteReceiverProfiles()
+        }
     }
     val fieldBlue = Color(0xFF0B4F71)
     val fieldBlueDark = Color(0xFF073653)
@@ -536,6 +540,35 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         }
                     }
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("RECEPTORES GNSS FAVORITOS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Salve o equipamento completo que se comunica com o celular. A antena física usada na ocupação continua registrada separadamente.")
+                            if (favoriteReceiverProfiles.isEmpty()) {
+                                Text("Nenhum favorito salvo neste aparelho.")
+                            } else {
+                                favoriteReceiverProfiles.forEach { profile ->
+                                    OutlinedButton(onClick = {
+                                        receiverManufacturer = profile.receiverManufacturer.orEmpty()
+                                        receiverModel = profile.receiverModel.orEmpty()
+                                        receiverSerial = profile.receiverSerial.orEmpty()
+                                        connectionTransport = profile.transportType
+                                        connectionHost = profile.hostOrAddress.orEmpty()
+                                        connectionPort = profile.port?.toString().orEmpty()
+                                        bluetoothName = profile.bluetoothName.orEmpty()
+                                        bluetoothMac = profile.bluetoothMac.orEmpty()
+                                        connectionNotes = profile.notes.orEmpty()
+                                        connectionStatus = "Favorito carregado. Nenhum comando foi enviado ao receptor."
+                                    }, modifier = Modifier.fillMaxWidth()) {
+                                        Text(listOfNotNull(profile.receiverManufacturer, profile.receiverModel, profile.receiverSerial?.let { "S/N $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante do receptor GNSS") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor GNSS") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Nº de série do receptor GNSS") }, modifier = Modifier.fillMaxWidth())
                     Text("Transporte", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { connectionTransport = ReceiverTransportType.WIFI_TCP }, enabled = connectionTransport != ReceiverTransportType.WIFI_TCP) { Text("WI-FI/TCP") }
@@ -587,6 +620,31 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         }
                     }
                     OutlinedTextField(connectionNotes, { connectionNotes = it }, label = { Text("Observações de bancada") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedButton(onClick = {
+                        if (receiverManufacturer.isBlank() && receiverModel.isBlank()) {
+                            connectionStatus = "Informe ao menos fabricante ou modelo para salvar o receptor favorito."
+                        } else {
+                            scope.launch {
+                                repository.saveConnectionProfile(
+                                    ReceiverConnectionProfile(
+                                        receiverManufacturer = receiverManufacturer.trim().ifBlank { null },
+                                        receiverModel = receiverModel.trim().ifBlank { null },
+                                        receiverSerial = receiverSerial.trim().ifBlank { null },
+                                        isFavorite = true,
+                                        transportType = connectionTransport,
+                                        hostOrAddress = connectionHost.trim().ifBlank { null },
+                                        port = connectionPort.toIntOrNull(),
+                                        bluetoothName = bluetoothName.trim().ifBlank { null },
+                                        bluetoothMac = bluetoothMac.trim().ifBlank { null },
+                                        notes = connectionNotes.trim().ifBlank { null },
+                                    ),
+                                )
+                                favoriteReceiverProfiles = repository.findFavoriteReceiverProfiles()
+                                connectionProfiles = repository.findConnectionProfiles()
+                                connectionStatus = "Receptor salvo como favorito neste aparelho."
+                            }
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("SALVAR COMO FAVORITO") }
                     Button(onClick = {
                         val endpoint = when (connectionTransport) {
                             ReceiverTransportType.WIFI_TCP, ReceiverTransportType.SERIAL -> listOf(connectionHost.trim(), connectionPort.trim()).filter { it.isNotBlank() }.joinToString(":")
@@ -597,6 +655,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             if (endpoint.isNotBlank()) {
                                 repository.saveConnectionProfile(
                                     ReceiverConnectionProfile(
+                                        receiverManufacturer = receiverManufacturer.trim().ifBlank { null },
+                                        receiverModel = receiverModel.trim().ifBlank { null },
+                                        receiverSerial = receiverSerial.trim().ifBlank { null },
                                         transportType = connectionTransport,
                                         hostOrAddress = connectionHost.trim().ifBlank { null },
                                         port = connectionPort.toIntOrNull(),
@@ -606,6 +667,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     ),
                                 )
                                 connectionProfiles = repository.findConnectionProfiles()
+                                favoriteReceiverProfiles = repository.findFavoriteReceiverProfiles()
                             }
                             val result = if (connectionTransport == ReceiverTransportType.WIFI_TCP) {
                                 withContext(Dispatchers.IO) { tcpTransport.connect(connectionHost.trim(), connectionPort.toIntOrNull() ?: 0) }
@@ -637,6 +699,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Text("PERFIS SALVOS NESTE APARELHO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                         connectionProfiles.take(3).forEach { profile ->
                             Button(onClick = {
+                                receiverManufacturer = profile.receiverManufacturer.orEmpty()
+                                receiverModel = profile.receiverModel.orEmpty()
+                                receiverSerial = profile.receiverSerial.orEmpty()
                                 connectionTransport = profile.transportType
                                 connectionHost = profile.hostOrAddress.orEmpty()
                                 connectionPort = profile.port?.toString().orEmpty()
@@ -645,7 +710,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 connectionNotes = profile.notes.orEmpty()
                                 connectionStatus = "Perfil carregado; teste a conexão quando o receptor estiver acessível"
                             }, modifier = Modifier.fillMaxWidth()) {
-                                val label = profile.hostOrAddress ?: profile.bluetoothName ?: "perfil sem endereço"
+                                val label = profile.receiverModel ?: profile.hostOrAddress ?: profile.bluetoothName ?: "perfil sem endereço"
                                 Text("${profile.transportType}: $label${profile.port?.let { ":$it" }.orEmpty()}")
                             }
                         }

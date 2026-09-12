@@ -56,4 +56,7 @@ interface ReceiverConnectionProfileDao {
     @Upsert suspend fun upsert(profile: ReceiverConnectionProfileEntity)
     @Query("SELECT * FROM receiver_connection_profiles ORDER BY savedAtEpochMillis DESC")
     suspend fun findAll(): List<ReceiverConnectionProfileEntity>
+
+    @Query("SELECT * FROM receiver_connection_profiles WHERE isFavorite = 1 ORDER BY savedAtEpochMillis DESC")
+    suspend fun findFavorites(): List<ReceiverConnectionProfileEntity>
 }

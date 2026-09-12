@@ -90,6 +90,10 @@ data class HeightMeasurementEntity(
 @Entity(tableName = "receiver_connection_profiles", indices = [Index("savedAtEpochMillis")])
 data class ReceiverConnectionProfileEntity(
     @PrimaryKey val id: String,
+    val receiverManufacturer: String?,
+    val receiverModel: String?,
+    val receiverSerial: String?,
+    val isFavorite: Boolean,
     val transportType: String,
     val hostOrAddress: String?,
     val port: Int?,
