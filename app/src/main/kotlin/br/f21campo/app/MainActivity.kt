@@ -333,7 +333,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
             }
         }
     }
-    LaunchedEffect(route) {
+    // Step-specific persisted choices must refresh when the wizard advances,
+    // not only when the top-level route changes.
+    LaunchedEffect(route, newStep) {
         if (route == "PROJECTS") projects = repository.findAllProjects()
         if (route == "STATIONS") stations = repository.findAllStations()
         if (route == "HOME") {
