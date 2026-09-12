@@ -613,7 +613,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         bluetoothMac = mac
                                         connectionStatus = "Dispositivo selecionado; transporte e protocolo ainda não homologados."
                                     }, modifier = Modifier.fillMaxWidth()) {
-                                        Text("${deviceName.ifBlank { "Sem nome" } · $mac")
+                                        Text("${deviceName.ifBlank { "Sem nome" }} · $mac")
                                     }
                                 }
                             }
