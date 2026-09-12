@@ -3,6 +3,11 @@ package br.f21campo.app
 import android.os.Bundle
 import android.Manifest
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothDevice
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.widget.Toast
@@ -35,6 +40,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -209,6 +216,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var bluetoothName by remember { mutableStateOf("") }
     var bluetoothMac by remember { mutableStateOf("") }
     var pairedBluetoothDevices by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    val discoveredBluetoothDevices = remember { mutableStateListOf<Pair<String, String>>() }
     var bluetoothDiscoveryStatus by remember { mutableStateOf("Ainda não consultado") }
     var connectionNotes by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
@@ -218,8 +226,35 @@ private fun StationScreen(repository: ProjectStationRepository) {
     val tcpTransport = remember { TcpReceiverTransport() }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val updateBluetoothDiscoveryStatus by rememberUpdatedState<(String) -> Unit> { message -> bluetoothDiscoveryStatus = message }
+    val bluetoothDiscoveryReceiver = remember {
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                when (intent.action) {
+                    BluetoothDevice.ACTION_FOUND -> {
+                        @Suppress("DEPRECATION")
+                        val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                        val entry = device?.let { it.name.orEmpty() to it.address.orEmpty() }
+                        if (entry != null && entry.second.isNotBlank() && entry !in discoveredBluetoothDevices) {
+                            discoveredBluetoothDevices += entry
+                        }
+                    }
+                    android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED ->
+                        updateBluetoothDiscoveryStatus("Busca concluída. Para conectar, pareie o receptor nas configurações Android e depois selecione-o no F-21.")
+                }
+            }
+        }
+    }
     DisposableEffect(tcpTransport) {
         onDispose { tcpTransport.close() }
+    }
+    DisposableEffect(context) {
+        val filter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_FOUND)
+            addAction(android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+        }
+        ContextCompat.registerReceiver(context, bluetoothDiscoveryReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose { context.unregisterReceiver(bluetoothDiscoveryReceiver) }
     }
     BackHandler(enabled = route != "HOME") {
         if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep > 1) {
@@ -243,9 +278,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
             }
         }
     }
-    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        bluetoothDiscoveryStatus = if (granted) "Permissão Bluetooth concedida. Toque novamente para listar os dispositivos pareados."
-        else "Permissão Bluetooth negada; não é possível consultar dispositivos pareados."
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+        val granted = permissions.values.all { it }
+        bluetoothDiscoveryStatus = if (granted) "Permissões Bluetooth concedidas. Toque novamente para procurar ou listar receptores."
+        else "Permissões Bluetooth negadas; não é possível procurar ou consultar dispositivos."
     }
     val startNewTracking = {
         name = ""
@@ -584,9 +620,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         OutlinedTextField(bluetoothMac, { bluetoothMac = it }, label = { Text("MAC Bluetooth, se conhecido") }, modifier = Modifier.fillMaxWidth())
                         Button(onClick = {
                             val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                                ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+                                (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED)
                             if (!permissionGranted) {
-                                bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                                bluetoothPermissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
                             } else {
                                 val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
                                 when {
@@ -603,6 +640,25 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("LISTAR DISPOSITIVOS PAREADOS") }
+                        OutlinedButton(onClick = {
+                            val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                                (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED)
+                            if (!permissionGranted) {
+                                bluetoothPermissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+                            } else {
+                                val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+                                when {
+                                    adapter == null -> bluetoothDiscoveryStatus = "Este aparelho não possui adaptador Bluetooth disponível."
+                                    !adapter.isEnabled -> bluetoothDiscoveryStatus = "Ative o Bluetooth do celular e tente novamente."
+                                    else -> {
+                                        discoveredBluetoothDevices.clear()
+                                        if (adapter.isDiscovering) adapter.cancelDiscovery()
+                                        bluetoothDiscoveryStatus = if (adapter.startDiscovery()) "Procurando dispositivos Bluetooth próximos..." else "Não foi possível iniciar a busca Bluetooth."
+                                    }
+                                }
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("PROCURAR DISPOSITIVOS PRÓXIMOS") }
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text("BLUETOOTH DE BANCADA", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
@@ -614,6 +670,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         connectionStatus = "Dispositivo selecionado; transporte e protocolo ainda não homologados."
                                     }, modifier = Modifier.fillMaxWidth()) {
                                         Text("${deviceName.ifBlank { "Sem nome" }} · $mac")
+                                    }
+                                }
+                                if (discoveredBluetoothDevices.isNotEmpty()) {
+                                    Text("DISPOSITIVOS ENCONTRADOS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                    discoveredBluetoothDevices.forEach { (deviceName, mac) ->
+                                        OutlinedButton(onClick = {
+                                            bluetoothName = deviceName
+                                            bluetoothMac = mac
+                                            connectionStatus = "Dispositivo selecionado. Pareie-o no Android antes de tentar a conexão de bancada."
+                                        }, modifier = Modifier.fillMaxWidth()) {
+                                            Text("${deviceName.ifBlank { "Sem nome" }} · $mac")
+                                        }
                                     }
                                 }
                             }
