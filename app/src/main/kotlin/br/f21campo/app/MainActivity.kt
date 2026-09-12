@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothSocket
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -77,6 +78,8 @@ import br.f21campo.receiver.api.TcpReceiverTransport
 import br.f21campo.receiver.manual.ManualReceiverConnection
 import java.time.Instant
 import java.io.File
+import java.io.IOException
+import java.util.UUID
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -219,6 +222,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
     val discoveredBluetoothDevices = remember { mutableStateListOf<Pair<String, String>>() }
     var bluetoothDiscoveryStatus by remember { mutableStateOf("Ainda não consultado") }
     var bluetoothServiceUuids by remember { mutableStateOf("") }
+    var bluetoothServiceUuidInput by remember { mutableStateOf("") }
+    var bluetoothTransportStatus by remember { mutableStateOf("Canal Bluetooth não aberto") }
+    var bluetoothChannelOpen by remember { mutableStateOf(false) }
+    val bluetoothSocketHolder = remember { arrayOfNulls<BluetoothSocket>(1) }
     var connectionNotes by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
     var connectionProfiles by remember { mutableStateOf(emptyList<ReceiverConnectionProfile>()) }
@@ -247,7 +254,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
         }
     }
     DisposableEffect(tcpTransport) {
-        onDispose { tcpTransport.close() }
+        onDispose {
+            tcpTransport.close()
+            try { bluetoothSocketHolder[0]?.close() } catch (_: IOException) { }
+            bluetoothSocketHolder[0] = null
+        }
     }
     DisposableEffect(context) {
         val filter = IntentFilter().apply {
@@ -711,6 +722,54 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     Text("SERVIÇOS BLUETOOTH OBSERVADOS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                                     Text(bluetoothServiceUuids, style = MaterialTheme.typography.bodySmall)
                                 }
+                                OutlinedTextField(
+                                    bluetoothServiceUuidInput,
+                                    { bluetoothServiceUuidInput = it },
+                                    label = { Text("UUID RFCOMM observado (opcional)") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Text("O UUID deve vir do receptor/Android. Nenhum UUID é presumido pelo F-21.", style = MaterialTheme.typography.bodySmall)
+                                Button(
+                                    enabled = bluetoothMac.isNotBlank() && bluetoothServiceUuidInput.isNotBlank(),
+                                    onClick = {
+                                        scope.launch {
+                                            bluetoothTransportStatus = "Abrindo canal RFCOMM..."
+                                            val result = withContext(Dispatchers.IO) {
+                                                try {
+                                                    val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+                                                    val device = adapter?.getRemoteDevice(bluetoothMac)
+                                                    val uuid = UUID.fromString(bluetoothServiceUuidInput.trim())
+                                                    val socket = device?.createRfcommSocketToServiceRecord(uuid)
+                                                        ?: error("Adaptador Bluetooth indisponível")
+                                                    adapter.cancelDiscovery()
+                                                    socket.connect()
+                                                    bluetoothSocketHolder[0]?.close()
+                                                    bluetoothSocketHolder[0] = socket
+                                                    bluetoothChannelOpen = true
+                                                    "Canal RFCOMM aberto; nenhum byte foi transmitido."
+                                                } catch (error: Exception) {
+                                                    try { bluetoothSocketHolder[0]?.close() } catch (_: IOException) { }
+                                                    bluetoothSocketHolder[0] = null
+                                                    bluetoothChannelOpen = false
+                                                    "Falha ao abrir canal RFCOMM: ${error.message ?: error::class.simpleName}"
+                                                }
+                                            }
+                                            bluetoothTransportStatus = result
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) { Text("TESTAR CANAL RFCOMM") }
+                                OutlinedButton(
+                                    enabled = bluetoothChannelOpen,
+                                    onClick = {
+                                        try { bluetoothSocketHolder[0]?.close() } catch (_: IOException) { }
+                                        bluetoothSocketHolder[0] = null
+                                        bluetoothChannelOpen = false
+                                        bluetoothTransportStatus = "Canal RFCOMM fechado; nenhum comando foi enviado."
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) { Text("FECHAR CANAL") }
+                                Text(bluetoothTransportStatus)
                             }
                         }
                     }
