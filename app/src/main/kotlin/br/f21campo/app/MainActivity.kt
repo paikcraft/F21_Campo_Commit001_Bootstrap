@@ -685,13 +685,20 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     adapter == null -> bluetoothDiscoveryStatus = "Este aparelho não possui adaptador Bluetooth disponível."
                                     !adapter.isEnabled -> bluetoothDiscoveryStatus = "Ative o Bluetooth do celular e tente novamente."
                                     else -> {
-                                        discoveredBluetoothDevices.clear()
-                                        if (adapter.isDiscovering) adapter.cancelDiscovery()
-                                        bluetoothDiscoveryStatus = if (adapter.startDiscovery()) "Procurando dispositivos Bluetooth próximos..." else "Não foi possível iniciar a busca Bluetooth."
+                                        if (adapter.isDiscovering) {
+                                            adapter.cancelDiscovery()
+                                            bluetoothDiscoveryStatus = "Busca Bluetooth interrompida pelo operador."
+                                        } else {
+                                            discoveredBluetoothDevices.clear()
+                                            bluetoothDiscoveryStatus = if (adapter.startDiscovery()) "Procurando dispositivos Bluetooth próximos..." else "Não foi possível iniciar a busca Bluetooth."
+                                        }
                                     }
                                 }
                             }
-                        }, modifier = Modifier.fillMaxWidth()) { Text("PROCURAR DISPOSITIVOS PRÓXIMOS") }
+                        }, modifier = Modifier.fillMaxWidth()) {
+                            val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+                            Text(if (adapter?.isDiscovering == true) "PARAR BUSCA" else "PROCURAR DISPOSITIVOS PRÓXIMOS")
+                        }
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text("BLUETOOTH DE BANCADA", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
