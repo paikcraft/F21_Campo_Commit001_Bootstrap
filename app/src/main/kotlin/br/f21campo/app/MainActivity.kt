@@ -734,13 +734,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     enabled = bluetoothMac.isNotBlank() && bluetoothServiceUuidInput.isNotBlank(),
                                     onClick = {
                                         scope.launch {
+                                            val normalizedUuid = bluetoothServiceUuidInput.trim()
+                                            val parsedUuid = runCatching { UUID.fromString(normalizedUuid) }.getOrNull()
+                                            if (parsedUuid == null) {
+                                                bluetoothTransportStatus = "UUID inválido. Use o UUID observado no Android, sem inventar um valor."
+                                                return@launch
+                                            }
                                             bluetoothTransportStatus = "Abrindo canal RFCOMM..."
                                             val result = withContext(Dispatchers.IO) {
                                                 try {
                                                     val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
                                                     val device = adapter?.getRemoteDevice(bluetoothMac)
-                                                    val uuid = UUID.fromString(bluetoothServiceUuidInput.trim())
-                                                    val socket = device?.createRfcommSocketToServiceRecord(uuid)
+                                                    val socket = device?.createRfcommSocketToServiceRecord(parsedUuid)
                                                         ?: error("Adaptador Bluetooth indisponível")
                                                     adapter.cancelDiscovery()
                                                     socket.connect()
