@@ -1,6 +1,10 @@
 package br.f21campo.app
 
 import android.os.Bundle
+import android.Manifest
+import android.bluetooth.BluetoothManager
+import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -33,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.platform.LocalContext
 import br.f21campo.files.RawFileStore
 import androidx.room.Room
@@ -203,6 +208,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var connectionPort by remember { mutableStateOf("") }
     var bluetoothName by remember { mutableStateOf("") }
     var bluetoothMac by remember { mutableStateOf("") }
+    var pairedBluetoothDevices by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
+    var bluetoothDiscoveryStatus by remember { mutableStateOf("Ainda não consultado") }
     var connectionNotes by remember { mutableStateOf("") }
     var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
     var connectionProfiles by remember { mutableStateOf(emptyList<ReceiverConnectionProfile>()) }
@@ -234,6 +241,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 status = "Bruto RAW_RECEIVER importado: ${stored.sha256.take(12)}…"
             }
         }
+    }
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        bluetoothDiscoveryStatus = if (granted) "Permissão Bluetooth concedida. Toque novamente para listar os dispositivos pareados."
+        else "Permissão Bluetooth negada; não é possível consultar dispositivos pareados."
     }
     val startNewTracking = {
         name = ""
@@ -538,6 +549,42 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     if (connectionTransport == ReceiverTransportType.BLUETOOTH) {
                         OutlinedTextField(bluetoothName, { bluetoothName = it }, label = { Text("Nome Bluetooth, se conhecido") }, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(bluetoothMac, { bluetoothMac = it }, label = { Text("MAC Bluetooth, se conhecido") }, modifier = Modifier.fillMaxWidth())
+                        Button(onClick = {
+                            val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+                            if (!permissionGranted) {
+                                bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+                            } else {
+                                val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+                                when {
+                                    adapter == null -> bluetoothDiscoveryStatus = "Este aparelho não possui adaptador Bluetooth disponível."
+                                    !adapter.isEnabled -> bluetoothDiscoveryStatus = "Ative o Bluetooth do celular e tente novamente."
+                                    else -> {
+                                        pairedBluetoothDevices = adapter.bondedDevices
+                                            .map { it.name.orEmpty() to it.address.orEmpty() }
+                                            .sortedBy { it.first }
+                                        bluetoothDiscoveryStatus = if (pairedBluetoothDevices.isEmpty()) {
+                                            "Nenhum dispositivo pareado. Faça o pareamento nas configurações Android."
+                                        } else "Selecione um dispositivo pareado para registrar o perfil de bancada."
+                                    }
+                                }
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("LISTAR DISPOSITIVOS PAREADOS") }
+                        Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("BLUETOOTH DE BANCADA", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                Text(bluetoothDiscoveryStatus)
+                                pairedBluetoothDevices.forEach { (deviceName, mac) ->
+                                    OutlinedButton(onClick = {
+                                        bluetoothName = deviceName
+                                        bluetoothMac = mac
+                                        connectionStatus = "Dispositivo selecionado; transporte e protocolo ainda não homologados."
+                                    }, modifier = Modifier.fillMaxWidth()) {
+                                        Text("${deviceName.ifBlank { "Sem nome" } · $mac")
+                                    }
+                                }
+                            }
+                        }
                     }
                     OutlinedTextField(connectionNotes, { connectionNotes = it }, label = { Text("Observações de bancada") }, modifier = Modifier.fillMaxWidth())
                     Button(onClick = {
@@ -583,7 +630,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Estado", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                             Text(connectionStatus)
-                            Text("No Wi-Fi/TCP, o app testa somente se a porta aceita conexão. Não envia RID, START, STOP nem outro comando Spectra. Porta, framing, handshake e respostas dependem de validação física.")
+                            Text("No Wi-Fi/TCP, o app testa somente se a porta aceita conexão. No Bluetooth, ele lista dispositivos já pareados. Não envia RID, START, STOP nem outro comando Spectra. RFCOMM/BLE, UUID, framing e respostas dependem de validação física.")
                         }
                     }
                     if (connectionProfiles.isNotEmpty()) {
