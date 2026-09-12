@@ -11,6 +11,7 @@ Bootstrap do novo aplicativo Android para rastreabilidade de ocupações GNSS e 
 - Kotlin
 - Jetpack Compose
 - núcleo multi-receptor
+- receptor separado de transporte (Wi-Fi/TCP, Bluetooth e Serial/USB)
 - flavors `operational` e `lab`
 - domínio independente de fabricante
 
