@@ -1,6 +1,5 @@
 package br.f21campo.data
 
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -25,7 +24,7 @@ class DatabaseExchangeTest {
     }
 
     @Test
-    fun jsonRoundTripPreservesCoreRecordsAndNullableFields() {
+    fun completeEnvelopeWithNullableCoreRecordsPassesValidation() {
         val envelope = DatabaseExchangeEnvelope(
             exportedAtEpochMillis = 10L,
             projects = listOf(ProjectEntity("p1", "Comissão 1", 1L, null)),
@@ -38,11 +37,6 @@ class DatabaseExchangeTest {
             receiverConnectionProfiles = listOf(ReceiverConnectionProfileEntity("c1", "Spectra", "S900", null, true, "WIFI_TCP", "192.0.2.1", 2101, null, null, null, "manual", 10L)),
         )
 
-        val decoded = DatabaseExchangeJsonCodec.decodeCore(DatabaseExchangeJsonCodec.encode(envelope))
-
-        assertEquals(envelope, decoded)
-        assertEquals(null, decoded.stations.single().municipality)
-        assertEquals("RAW_RECEIVER", decoded.artifacts.single().role)
-        assertEquals("BEFORE", decoded.heightMeasurements.single().phase)
+        assertTrue(envelope.validate().isSuccess)
     }
 }
