@@ -1,6 +1,7 @@
 package br.f21campo.data
 
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class DatabaseExchangeTest {
@@ -38,5 +39,11 @@ class DatabaseExchangeTest {
         )
 
         assertTrue(envelope.validate().isSuccess)
+    }
+
+    @Test
+    fun migrationChainIsContiguousFromOneToCurrent() {
+        assertEquals((1..15).toList(), Migrations.ALL.flatMap { listOf(it.startVersion) })
+        assertEquals((2..15).toList(), Migrations.ALL.map { it.endVersion })
     }
 }
