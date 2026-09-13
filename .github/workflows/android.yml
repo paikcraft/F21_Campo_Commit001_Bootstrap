@@ -44,5 +44,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: f21-campo-room-schemas
-          path: data/schemas/*.json
+          path: data/schemas/**/*.json
           if-no-files-found: error
