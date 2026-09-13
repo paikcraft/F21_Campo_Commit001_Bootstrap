@@ -57,6 +57,8 @@ class GateR2EndToEndTest {
             Antenna(EntityId("antenna-r2"), "Spectra", "ASH801", "ant-r2"),
         ) as DomainResult.Success).value
         repository.save(occupation)
+        repository.save(station.copy(name = "RN 01 editada depois"))
+        repository.save(occupation)
 
         repository.replaceHeights(
             occupation.id,
@@ -96,6 +98,9 @@ class GateR2EndToEndTest {
         assertEquals("RN-01", second.referencePointDao().findById(reference.id.value)?.code)
         assertEquals("S900", reopened?.equipment?.receiver?.model)
         assertEquals("fw-r2", reopened?.equipment?.receiver?.firmware)
+        assertEquals("RN-01", reopened?.snapshots?.referencePoint?.code)
+        assertEquals("RN 01", reopened?.snapshots?.station?.name)
+        assertEquals("ASH801", reopened?.snapshots?.antenna?.model)
         assertEquals(2, repository(second).findHeights(occupation.id).count { it.phase == HeightPhase.BEFORE })
         assertEquals(1, repository(second).findHeights(occupation.id).count { it.phase == HeightPhase.AFTER })
         assertEquals("sha-r2", second.occupationArtifactDao().findByOccupation(occupation.id.value).single().sha256)
@@ -118,5 +123,6 @@ class GateR2EndToEndTest {
         database.receiverCatalogDao(),
         database.antennaCatalogDao(),
         database.auditEventDao(),
+        database.occupationSnapshotDao(),
     )
 }

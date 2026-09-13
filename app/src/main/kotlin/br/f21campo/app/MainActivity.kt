@@ -310,6 +310,7 @@ class MainActivity : ComponentActivity() {
                     database.receiverCatalogDao(),
                     database.antennaCatalogDao(),
                     database.auditEventDao(),
+                    database.occupationSnapshotDao(),
                 ),
             )
         }
@@ -539,26 +540,52 @@ private fun StationScreen(repository: ProjectStationRepository) {
     }
     suspend fun restorePendingOccupation(pending: Occupation) {
         val heights = repository.findHeights(pending.id)
+        val historical = repository.findOccupationSnapshots(pending.id)
         val recoveredProject = repository.findProject(pending.projectId)
         val recoveredStation = repository.findStation(pending.stationId)
         val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
-        occupation = pending
+        occupation = pending.copy(snapshots = historical ?: pending.snapshots)
         occupationPersisted = true
         projectName = recoveredProject?.name.orEmpty()
-        savedId = recoveredStation?.id
+        savedId = historical?.station?.stationId ?: recoveredStation?.id
         stationEditorCreatedAt = recoveredStation?.createdAt
-        name = recoveredStation?.name.orEmpty()
-        locality = recoveredStation?.locality.orEmpty()
-        municipality = recoveredStation?.municipality.orEmpty()
-        receiverModel = pending.equipment?.receiver?.model.orEmpty()
-        receiverManufacturer = pending.equipment?.receiver?.manufacturer.orEmpty()
-        receiverSerial = pending.equipment?.receiver?.serialNumber.orEmpty()
-        receiverFirmware = pending.equipment?.receiver?.firmware.orEmpty()
-        antennaModel = pending.equipment?.antenna?.model.orEmpty()
-        antennaManufacturer = pending.equipment?.antenna?.manufacturer.orEmpty()
-        antennaSerial = pending.equipment?.antenna?.serialNumber.orEmpty()
+        name = historical?.station?.name ?: recoveredStation?.name.orEmpty()
+        locality = historical?.station?.locality ?: recoveredStation?.locality.orEmpty()
+        municipality = historical?.station?.municipality ?: recoveredStation?.municipality.orEmpty()
+        val recoveredEquipment = historical?.let { snapshots ->
+            if (snapshots.receiver != null && snapshots.antenna != null) {
+                br.f21campo.domain.EquipmentSnapshot(
+                    br.f21campo.domain.Receiver(
+                        snapshots.receiver.receiverId ?: EntityId.new(),
+                        snapshots.receiver.manufacturer,
+                        snapshots.receiver.model,
+                        snapshots.receiver.serialNumber,
+                        snapshots.receiver.source,
+                        snapshots.receiver.firmware,
+                    ),
+                    br.f21campo.domain.Antenna(
+                        snapshots.antenna.antennaId ?: EntityId.new(),
+                        snapshots.antenna.manufacturer,
+                        snapshots.antenna.model,
+                        snapshots.antenna.serialNumber,
+                        snapshots.antenna.source,
+                    ),
+                )
+            } else null
+        } ?: pending.equipment
+        receiverModel = recoveredEquipment?.receiver?.model.orEmpty()
+        receiverManufacturer = recoveredEquipment?.receiver?.manufacturer.orEmpty()
+        receiverSerial = recoveredEquipment?.receiver?.serialNumber.orEmpty()
+        receiverFirmware = recoveredEquipment?.receiver?.firmware.orEmpty()
+        antennaModel = recoveredEquipment?.antenna?.model.orEmpty()
+        antennaManufacturer = recoveredEquipment?.antenna?.manufacturer.orEmpty()
+        antennaSerial = recoveredEquipment?.antenna?.serialNumber.orEmpty()
         durationMinutes = pending.plannedDurationSeconds?.div(60L)?.toString().orEmpty()
-        if (recoveredReference != null) {
+        val historicalReference = historical?.referencePoint
+        if (historicalReference != null) {
+            referenceType = historicalReference.type ?: recoveredReference?.type ?: ReferencePointType.RN
+            referenceCode = historicalReference.code.orEmpty()
+        } else if (recoveredReference != null) {
             referenceType = recoveredReference.type
             referenceCode = recoveredReference.code
         } else {
@@ -581,8 +608,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
         val firstMissingStep = when {
             projectName.isBlank() -> 1
             name.isBlank() || locality.isBlank() -> 2
-            recoveredReference == null -> 3
-            pending.equipment == null -> 4
+            historicalReference == null && recoveredReference == null -> 3
+            recoveredEquipment == null -> 4
             !pending.hasBeforeHeight -> 5
             else -> 6
         }

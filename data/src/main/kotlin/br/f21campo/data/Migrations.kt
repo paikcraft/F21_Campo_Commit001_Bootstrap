@@ -121,6 +121,21 @@ object Migrations {
         }
     }
 
+    /**
+     * Preserve the station/reference/equipment values used by each
+     * occupation.  Legacy rows are backfilled from the records available at
+     * migration time; new rows are written by the repository before later
+     * catalogue edits can affect them.
+     */
+    val V18_TO_V19 = object : Migration(18, 19) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS occupation_snapshots (occupationId TEXT NOT NULL PRIMARY KEY, stationId TEXT, stationName TEXT, stationLocality TEXT, stationMunicipality TEXT, referencePointId TEXT, referenceType TEXT, referenceCode TEXT, referenceDescription TEXT, referenceObservation TEXT, receiverId TEXT, receiverManufacturer TEXT, receiverModel TEXT, receiverSerial TEXT, receiverFirmware TEXT, receiverSource TEXT, antennaId TEXT, antennaManufacturer TEXT, antennaModel TEXT, antennaSerial TEXT, antennaSource TEXT)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_occupation_snapshots_stationId ON occupation_snapshots(stationId)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_occupation_snapshots_referencePointId ON occupation_snapshots(referencePointId)")
+            database.execSQL("INSERT OR IGNORE INTO occupation_snapshots (occupationId, stationId, stationName, stationLocality, stationMunicipality, referencePointId, referenceType, referenceCode, referenceDescription, referenceObservation, receiverId, receiverManufacturer, receiverModel, receiverSerial, receiverFirmware, receiverSource, antennaId, antennaManufacturer, antennaModel, antennaSerial, antennaSource) SELECT o.id, s.id, s.name, s.locality, s.municipality, r.id, r.type, r.code, r.description, r.observation, NULL, o.receiverManufacturer, o.receiverModel, o.receiverSerial, o.receiverFirmware, CASE WHEN o.receiverManufacturer IS NOT NULL OR o.receiverModel IS NOT NULL OR o.receiverSerial IS NOT NULL OR o.receiverFirmware IS NOT NULL THEN 'OPERATOR' ELSE NULL END, NULL, o.antennaManufacturer, o.antennaModel, o.antennaSerial, CASE WHEN o.antennaManufacturer IS NOT NULL OR o.antennaModel IS NOT NULL OR o.antennaSerial IS NOT NULL THEN 'OPERATOR' ELSE NULL END FROM occupations o LEFT JOIN stations s ON s.id = o.stationId LEFT JOIN reference_points r ON r.id = o.referencePointId WHERE s.id IS NOT NULL OR r.id IS NOT NULL OR o.receiverManufacturer IS NOT NULL OR o.receiverModel IS NOT NULL OR o.receiverSerial IS NOT NULL OR o.receiverFirmware IS NOT NULL OR o.antennaManufacturer IS NOT NULL OR o.antennaModel IS NOT NULL OR o.antennaSerial IS NOT NULL")
+        }
+    }
+
     val ALL = arrayOf(
         V1_TO_V2,
         V2_TO_V3,
@@ -139,5 +154,6 @@ object Migrations {
         V15_TO_V16,
         V16_TO_V17,
         V17_TO_V18,
+        V18_TO_V19,
     )
 }

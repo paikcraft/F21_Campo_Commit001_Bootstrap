@@ -39,7 +39,7 @@ class RoomMigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate("migration-test", 18, true, *Migrations.ALL)
+        val migrated = helper.runMigrationsAndValidate("migration-test", 19, true, *Migrations.ALL)
         migrated.query("SELECT name FROM projects WHERE id = 'p1'").use { cursor ->
             check(cursor.moveToFirst())
             assertEquals("Comissão 1", cursor.getString(0))
@@ -66,6 +66,30 @@ class RoomMigrationTest {
         migrated.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_events'").use { cursor ->
             check(cursor.moveToFirst())
             assertEquals("audit_events", cursor.getString(0))
+        }
+        migrated.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'occupation_snapshots'").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals("occupation_snapshots", cursor.getString(0))
+        }
+        migrated.close()
+    }
+
+    @Test
+    @Throws(IOException::class)
+    fun migrateV18BackfillsHistoricalOccupationSnapshot() {
+        helper.createDatabase("snapshot-migration", 18).apply {
+            execSQL("INSERT INTO stations VALUES ('s-old', 'Estação antiga', 'Manaus', NULL, 2, NULL)")
+            execSQL("INSERT INTO reference_points VALUES ('r-old', 's-old', 'RN', 'RN-OLD', 'marco', 'legado')")
+            execSQL("INSERT INTO occupations (id, projectId, stationId, referencePointId, plannedDurationSeconds, state, plannedStartEpochMillis, confirmedStartEpochMillis, confirmedStopEpochMillis, receiverModel, antennaModel, receiverManufacturer, antennaManufacturer, receiverSerial, antennaSerial, receiverFirmware, hasBeforeHeight, beforeHeightMeters) VALUES ('o-old', 'p-old', 's-old', 'r-old', 1200, 'STOPPED', 3, 4, 5, 'S900', 'ASH801', 'Spectra', 'Spectra', 'rx-old', 'ant-old', 'fw-old', 1, 1.234)")
+            close()
+        }
+        val migrated = helper.runMigrationsAndValidate("snapshot-migration", 19, true, Migrations.V18_TO_V19)
+        migrated.query("SELECT stationName, referenceCode, receiverModel, antennaModel FROM occupation_snapshots WHERE occupationId = 'o-old'").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals("Estação antiga", cursor.getString(0))
+            assertEquals("RN-OLD", cursor.getString(1))
+            assertEquals("S900", cursor.getString(2))
+            assertEquals("ASH801", cursor.getString(3))
         }
         migrated.close()
     }
@@ -161,6 +185,31 @@ class RoomMigrationTest {
         first.occupationEventDao().upsert(OccupationEventEntity("e1", "o1", 6L, "NOTE", "INFO", "observado", "OPERATOR"))
         first.occupationArtifactDao().upsert(OccupationArtifactEntity("a1", "o1", "RAW_RECEIVER", "/raw/a1", 7L, "sha-a1", 8L))
         first.auditEventDao().insert(AuditEventEntity("audit-1", 9L, "OCCUPATION_CREATED", "operator", "o1"))
+        first.occupationSnapshotDao().upsert(
+            OccupationSnapshotEntity(
+                occupationId = "o1",
+                stationId = "s1",
+                stationName = "RN 1",
+                stationLocality = "Manaus",
+                stationMunicipality = null,
+                referencePointId = "r1",
+                referenceType = "RN",
+                referenceCode = "RN-1",
+                referenceDescription = "referência histórica",
+                referenceObservation = null,
+                receiverId = "rx-id",
+                receiverManufacturer = "Spectra",
+                receiverModel = "S900",
+                receiverSerial = "rx-1",
+                receiverFirmware = "fw-1",
+                receiverSource = "OPERATOR",
+                antennaId = "ant-id",
+                antennaManufacturer = "Spectra",
+                antennaModel = "ASH801",
+                antennaSerial = "ant-1",
+                antennaSource = "OPERATOR",
+            ),
+        )
         first.close()
 
         val second = Room.databaseBuilder(context, F21Database::class.java, name)
@@ -176,6 +225,8 @@ class RoomMigrationTest {
         assertEquals("observado", second.occupationEventDao().findByOccupation("o1").single().description)
         assertEquals("sha-a1", second.occupationArtifactDao().findByOccupation("o1").single().sha256)
         assertEquals("OCCUPATION_CREATED", second.auditEventDao().findByEntityId("o1").single().action)
+        assertEquals("RN-1", second.occupationSnapshotDao().findByOccupation("o1")?.referenceCode)
+        assertEquals("ASH801", second.occupationSnapshotDao().findByOccupation("o1")?.antennaModel)
         second.close()
         context.deleteDatabase(name)
     }

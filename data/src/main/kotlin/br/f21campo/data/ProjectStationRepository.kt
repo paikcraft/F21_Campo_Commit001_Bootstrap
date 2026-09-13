@@ -20,6 +20,11 @@ import br.f21campo.domain.HeightType
 import br.f21campo.domain.OccupationEventCategory
 import br.f21campo.domain.EventSeverity
 import br.f21campo.domain.ProvenanceSource
+import br.f21campo.domain.OccupationSnapshots
+import br.f21campo.domain.StationSnapshot
+import br.f21campo.domain.ReferencePointSnapshot
+import br.f21campo.domain.ReceiverSnapshot
+import br.f21campo.domain.AntennaSnapshot
 import br.f21campo.receiver.api.ReceiverConnectionProfile
 import br.f21campo.receiver.api.ReceiverTransportType
 import java.time.Instant
@@ -49,6 +54,7 @@ class ProjectStationRepository(
     private val receiverCatalogDao: ReceiverCatalogDao? = null,
     private val antennaCatalogDao: AntennaCatalogDao? = null,
     private val auditEventDao: AuditEventDao? = null,
+    private val occupationSnapshotDao: OccupationSnapshotDao? = null,
 ) {
     suspend fun importCoreExchange(envelope: DatabaseExchangeEnvelope): Result<DatabaseImportSummary> {
         envelope.validate().getOrElse { return Result.failure(it) }
@@ -145,12 +151,68 @@ class ProjectStationRepository(
     suspend fun save(occupation: Occupation): DomainResult<Unit> {
         val dao = occupationDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("occupation", "DAO not configured"))
         dao.upsert(occupation.toEntity())
+        val snapshotDao = occupationSnapshotDao
+        if (snapshotDao != null) {
+            val incoming = occupation.snapshots ?: captureSnapshot(occupation)
+            val existing = snapshotDao.findByOccupation(occupation.id.value)?.toDomain()
+            val merged = mergeSnapshots(existing, incoming)
+            if (merged != null && merged != existing) snapshotDao.upsert(merged.toEntity(occupation.id))
+        }
         return DomainResult.Success(Unit)
     }
 
-    suspend fun findIncompleteOccupations(): List<Occupation> = occupationDao?.findIncomplete()?.map(OccupationEntity::toDomain).orEmpty()
-    suspend fun findOccupation(id: EntityId): Occupation? = occupationDao?.findById(id.value)?.toDomain()
-    suspend fun findOccupationsByStation(stationId: EntityId): List<Occupation> = occupationDao?.findByStation(stationId.value)?.map(OccupationEntity::toDomain).orEmpty()
+    /** Fill only fields that have not been captured yet; never rewrite a historical value. */
+    private fun mergeSnapshots(existing: OccupationSnapshots?, incoming: OccupationSnapshots?): OccupationSnapshots? {
+        if (existing == null) return incoming
+        if (incoming == null) return existing
+        return OccupationSnapshots(
+            station = existing.station ?: incoming.station,
+            referencePoint = existing.referencePoint ?: incoming.referencePoint,
+            receiver = existing.receiver ?: incoming.receiver,
+            antenna = existing.antenna ?: incoming.antenna,
+        )
+    }
+
+    private suspend fun captureSnapshot(occupation: Occupation): OccupationSnapshots? {
+        val station = stationDao.findById(occupation.stationId.value)?.toDomain()
+        val reference = occupation.referencePointId?.let { referencePointDao?.findById(it.value)?.toDomain() }
+        val equipment = occupation.equipment
+        if (station == null && reference == null && equipment == null) return null
+        return OccupationSnapshots(
+            station = station?.let { StationSnapshot(it.id, it.name, it.locality, it.municipality) },
+            referencePoint = reference?.let { ReferencePointSnapshot(it.id, it.type, it.code, it.description, it.observation) },
+            receiver = equipment?.receiver?.let { ReceiverSnapshot(it.id, it.manufacturer, it.model, it.serialNumber, it.firmware, it.source) },
+            antenna = equipment?.antenna?.let { AntennaSnapshot(it.id, it.manufacturer, it.model, it.serialNumber, it.source) },
+        )
+    }
+
+    private suspend fun mapOccupation(entity: OccupationEntity): Occupation =
+        entity.toDomain(occupationSnapshotDao?.findByOccupation(entity.id))
+
+    private suspend fun mapOccupations(entities: List<OccupationEntity>): List<Occupation> = buildList {
+        entities.forEach { add(mapOccupation(it)) }
+    }
+
+    suspend fun findOccupationSnapshots(occupationId: EntityId): OccupationSnapshots? =
+        occupationSnapshotDao?.findByOccupation(occupationId.value)?.toDomain()
+
+    /** Saves an explicit historical snapshot only when the caller has the values in hand. */
+    suspend fun saveOccupationSnapshots(occupationId: EntityId, snapshots: OccupationSnapshots): DomainResult<Unit> {
+        val dao = occupationSnapshotDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("occupationSnapshots", "DAO not configured"))
+        val existing = dao.findByOccupation(occupationId.value)?.toDomain()
+        val merged = mergeSnapshots(existing, snapshots)
+        if (merged != null && merged != existing) dao.upsert(merged.toEntity(occupationId))
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun findIncompleteOccupations(): List<Occupation> =
+        occupationDao?.let { mapOccupations(it.findIncomplete()) }.orEmpty()
+
+    suspend fun findOccupation(id: EntityId): Occupation? =
+        occupationDao?.findById(id.value)?.let { mapOccupation(it) }
+
+    suspend fun findOccupationsByStation(stationId: EntityId): List<Occupation> =
+        occupationDao?.let { mapOccupations(it.findByStation(stationId.value)) }.orEmpty()
 
     suspend fun saveRawArtifact(occupationId: EntityId, path: String, sizeBytes: Long, sha256: String): DomainResult<Unit> {
         val dao = artifactDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("artifact", "DAO not configured"))

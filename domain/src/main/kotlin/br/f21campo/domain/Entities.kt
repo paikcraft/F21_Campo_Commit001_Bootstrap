@@ -55,6 +55,8 @@ data class Occupation(
     val equipment: EquipmentSnapshot? = null,
     val hasBeforeHeight: Boolean = false,
     val beforeHeightMeters: Double? = null,
+    /** Historical values used by this occupation; never inferred as live detection. */
+    val snapshots: OccupationSnapshots? = null,
 )
 
 enum class HeightPhase { BEFORE, AFTER }

@@ -47,6 +47,17 @@ interface OccupationDao {
 }
 
 @Dao
+interface OccupationSnapshotDao {
+    @Upsert suspend fun upsert(snapshot: OccupationSnapshotEntity)
+
+    @Query("SELECT * FROM occupation_snapshots WHERE occupationId = :occupationId")
+    suspend fun findByOccupation(occupationId: String): OccupationSnapshotEntity?
+
+    @Query("SELECT * FROM occupation_snapshots ORDER BY occupationId")
+    suspend fun findAll(): List<OccupationSnapshotEntity>
+}
+
+@Dao
 interface OccupationArtifactDao {
     @Upsert suspend fun upsert(artifact: OccupationArtifactEntity)
     @Upsert suspend fun upsertAll(artifacts: List<OccupationArtifactEntity>)
