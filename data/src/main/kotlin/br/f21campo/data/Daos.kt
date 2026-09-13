@@ -66,6 +66,7 @@ interface HeightMeasurementDao {
 @Dao
 interface ReceiverConnectionProfileDao {
     @Upsert suspend fun upsert(profile: ReceiverConnectionProfileEntity)
+    @Upsert suspend fun upsertAll(profiles: List<ReceiverConnectionProfileEntity>)
     @Query("SELECT * FROM receiver_connection_profiles ORDER BY savedAtEpochMillis DESC")
     suspend fun findAll(): List<ReceiverConnectionProfileEntity>
 

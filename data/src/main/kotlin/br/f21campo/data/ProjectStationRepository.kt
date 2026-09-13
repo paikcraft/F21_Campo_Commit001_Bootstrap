@@ -46,6 +46,8 @@ class ProjectStationRepository(
                     ?: error("DAO de eventos não configurado")
                 artifactDao?.upsertAll(envelope.artifacts)
                     ?: error("DAO de arquivos não configurado")
+                connectionProfileDao?.upsertAll(envelope.receiverConnectionProfiles)
+                    ?: error("DAO de perfis de conexão não configurado")
             }
         }
     }

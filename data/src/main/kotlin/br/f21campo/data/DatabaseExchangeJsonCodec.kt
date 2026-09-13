@@ -18,6 +18,7 @@ object DatabaseExchangeJsonCodec {
             heightMeasurements = root.optJSONArray("heightMeasurements").toObjects { item -> HeightMeasurementEntity(item.getString("id"), item.getString("occupationId"), item.getString("phase"), item.getDouble("valueMeters"), item.getString("type"), item.optNullableLong("observedAtEpochMillis"), item.optNullableString("observation")) },
             events = root.optJSONArray("events").toObjects { item -> OccupationEventEntity(item.getString("id"), item.getString("occupationId"), item.getLong("atEpochMillis"), item.getString("category"), item.getString("severity"), item.getString("description"), item.getString("source")) },
             artifacts = root.optJSONArray("artifacts").toObjects { item -> OccupationArtifactEntity(item.getString("id"), item.getString("occupationId"), item.getString("role"), item.getString("path"), item.getLong("sizeBytes"), item.getString("sha256"), item.getLong("importedAtEpochMillis")) },
+            receiverConnectionProfiles = root.optJSONArray("receiverConnectionProfiles").toObjects { item -> ReceiverConnectionProfileEntity(item.getString("id"), item.optNullableString("receiverManufacturer"), item.optNullableString("receiverModel"), item.optNullableString("receiverSerial"), item.optBoolean("isFavorite", false), item.getString("transportType"), item.optNullableString("hostOrAddress"), item.optNullableInt("port"), item.optNullableString("bluetoothName"), item.optNullableString("bluetoothMac"), item.optNullableString("bluetoothServiceUuid"), item.optNullableString("notes"), item.getLong("savedAtEpochMillis")) },
         )
         envelope.validate().getOrThrow()
         return envelope
@@ -50,4 +51,5 @@ object DatabaseExchangeJsonCodec {
     private fun JSONObject.optNullableString(key: String): String? = if (isNull(key)) null else optString(key).ifBlank { null }
     private fun JSONObject.optNullableLong(key: String): Long? = if (isNull(key)) null else optLong(key)
     private fun JSONObject.optNullableDouble(key: String): Double? = if (isNull(key)) null else optDouble(key)
+    private fun JSONObject.optNullableInt(key: String): Int? = if (isNull(key)) null else optInt(key)
 }
