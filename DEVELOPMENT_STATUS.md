@@ -4,12 +4,12 @@ Data da auditoria: 2026-09-13
 
 ## Identificação
 
-- HEAD audit base: `b528fefbe408a3f516c649f1d19b537990edf308` (snapshot block in progress)
+- HEAD: `008bd0a1be27dce1213443fc7d4e6bf5c1956147`
 - Branch: `main`
-- VersionName target: `0.1.13-dev`
-- VersionCode target: `14`
-- Room version target: `19`
-- CI mais recente do HEAD: run `34783033672`, `PASS`, SHA conferido
+- VersionName: `0.1.13-dev`
+- VersionCode: `14`
+- Room version: `19`
+- CI mais recente do HEAD: run `34785264096`, `PASS`, SHA conferido
 - Build local: bloqueado neste ambiente; não existe `gradlew.bat` e não há Gradle global disponível
 
 ## Módulos e toolchain
@@ -24,13 +24,13 @@ Data da auditoria: 2026-09-13
 
 ## Entidades persistidas
 
-Room persiste Project, Station, ReferencePoint, Occupation, OccupationArtifact, OccupationEvent, HeightMeasurement, AuditEvent, ReceiverConnectionProfile, ReceiverCatalog e AntennaCatalog. O equipamento de uma Occupation é persistido em campos achatados da ocupação e reconstruído como `EquipmentSnapshot`.
+Room persiste Project, Station, ReferencePoint, Occupation, OccupationSnapshot, OccupationArtifact, OccupationEvent, HeightMeasurement, AuditEvent, ReceiverConnectionProfile, ReceiverCatalog e AntennaCatalog. O equipamento também é preservado na fotografia histórica da ocupação.
 
 ## Migrations e schemas
 
 - Cadeia explícita V1→V19 em `data/src/main/kotlin/br/f21campo/data/Migrations.kt` (V18→V19 adiciona `occupation_snapshots`).
 - `exportSchema = true`.
-- Schemas versionados presentes: 15, 17 e 18. Não há `16.json` versionado; a lacuna está documentada nos relatórios históricos.
+- Schemas versionados presentes: 15, 17, 18 e 19. Não há `16.json` versionado; a lacuna está documentada nos relatórios históricos.
 - Não há `fallbackToDestructiveMigration` encontrado.
 - Testes Room in-memory, migration/reopen e preservação de dados passam no CI.
 
@@ -55,7 +55,7 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationArtifact, 
 
 ## Funcionalidades parciais
 
-- Snapshots históricos: Receiver/Antenna estão achatados em `occupations`, mas não existem `StationSnapshot`, `ReferencePointSnapshot`, `ReceiverSnapshot` e `AntennaSnapshot` persistidos como estrutura própria. Ao reabrir, estação e referência são buscadas pelo cadastro mutável.
+- Snapshots históricos: PASS no bloco R2.6; `occupation_snapshots` preserva Station, ReferencePoint, Receiver e Antenna, com backfill V18→V19 e reidratação pelo snapshot.
 - Reidratação após process death e comportamento visual no aparelho ainda não têm confirmação física nesta versão.
 - Auditoria registra principalmente ações da Occupation; edição de cadastros Station/Reference fora da ocupação não tem trilha completa.
 - Exportação/importação JSON preserva o núcleo atual, mas ainda não inclui snapshots, catálogos e auditoria.
@@ -63,7 +63,6 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationArtifact, 
 
 ## Funcionalidades ausentes ou fora do marco
 
-- Snapshot histórico dedicado de Station/Reference/Receiver/Antenna (implementação do bloco atual; aguardando testes/CI).
 - Spectra B1/B2/B3 operacional, protocolo, comandos, download remoto e identificação automática.
 - PPA/ppaScore, processamento GNSS próprio, PPP, parser RINEX completo e renderer F-21 definitivo.
 
@@ -77,8 +76,8 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationArtifact, 
 
 ## Marco atual
 
-**B — GATE R2 MANUAL EM CONSTRUÇÃO.** O bloco R2.6 está em implementação; ainda falta validar a migration/testes no CI e o reteste físico.
+**B — GATE R2 MANUAL EM CONSTRUÇÃO.** R2.6 passou em testes, migration e CI; ainda falta fortalecer a recuperação completa e realizar o reteste físico.
 
 ## Primeiro bloco incompleto
 
-**R2.6 — SNAPSHOTS HISTÓRICOS.** Implementar e validar snapshots persistidos para Station, ReferencePoint, Receiver e Antenna, com migration explícita, preservação/backfill de dados existentes, reidratação pelo snapshot e teste de fechamento/reabertura. Somente depois reavaliar `READY_FOR_PHYSICAL_TEST` e solicitar o roteiro físico atualizado.
+**R2.8 — AUTOSAVE E REIDRATAÇÃO COMPLETA.** O snapshot histórico passou; o próximo bloco deve provar que o fluxo completo, inclusive ACTIVE, reidrata a UI após fechamento/process death, sem perder eventos, alturas, RAW ou timestamps.
