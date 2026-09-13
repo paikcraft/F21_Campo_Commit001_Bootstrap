@@ -143,3 +143,16 @@
 - APK OPERATIONAL: artefato do run `34769326389`; SHA-256 `985DE14D5A07D8AF62D7F3598C729E49EDABC051833EC3E73DD900C85DD9B830`
 - LIMITAÇÕES: teste físico do fluxo completo, teclado/rolagem, fechamento pelo sistema e confirmação visual ainda dependem do aparelho; RAW continua sendo arquivo selecionado no dispositivo, sem download da antena; Spectra, PPA, RINEX completo e renderer F-21 permanecem fora do escopo
 - PRÓXIMO BLOCO: pausa humana para teste físico do Gate R2; somente após confirmação PASS avaliar Spectra B1 READ_ONLY
+
+## 2026-09-13 — Correção pós-teste físico
+
+- BLOCO: busca Bluetooth, tela Sobre e comportamento do teclado
+- STATUS: READY_FOR_PHYSICAL_RETEST (código, build e Actions PASS; correção ainda não repetida no aparelho)
+- COMMIT: `ed699dc`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`/Gradle global
+- GITHUB ACTIONS: run `34781927359` PASS, SHA `ed699dcb3f970060d8afd8f068b703dc137480a6` conferido; unitários, instrumentados e build `operationalDebug` concluídos
+- ROOM VERSION: 18; nenhuma migration alterada
+- ALTERAÇÕES: busca Bluetooth passou a solicitar permissões conforme a API (Dispositivos próximos no Android 12+ e Localização até Android 11), informar Localização desativada, capturar bloqueios de permissão e aceitar broadcasts do serviço Bluetooth; campos de texto usam `BringIntoViewRequester` para não ficarem atrás do teclado; tela Sobre recebeu cartões de descrição, versão, modo, contato e privacidade inspirados no padrão do Nivelamento de Bolso; APK incrementado para `0.1.11-dev`/versionCode 12
+- APK OPERATIONAL: artefato do run `34781927359`; SHA-256 `6EE7C0FF714A0AAA8F1B5D008FB237BEA6DE61C5F25A7232619735D9D8B05893`
+- LIMITAÇÕES: ainda não há comprovação física de que a busca encontre o hardware; descoberta genérica não presume UUID/protocolo Spectra; o teste da rolagem com teclado e a avaliação visual da tela Sobre precisam ser repetidos
+- PRÓXIMO BLOCO: reteste físico da busca Bluetooth e do teclado; depois retomar o Gate R2 ou registrar BLOCKED conforme o resultado
