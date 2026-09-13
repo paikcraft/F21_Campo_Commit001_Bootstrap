@@ -38,3 +38,16 @@
 - ALTERAÇÕES: schemas Room exportados/versionados em `data/schemas`, teste de cadeia de migrations, teste instrumentado de upgrade V1→V15 preservando dados, teste instrumentado de fechamento/reabertura e artefato de schemas no CI; runner ajustado para perfil válido e KVM
 - LIMITAÇÕES: a cadeia testada começa no schema V1 sintético disponível; teste físico e reidratação completa do fluxo ainda pendentes
 - PRÓXIMO BLOCO: Bloco 3 — Project, Station e ReferencePoint reais
+
+## 2026-09-13 — Bloco 3
+
+- BLOCO: Project, Station e ReferencePoint reais
+- STATUS: PASS (código, testes instrumentados e Actions; teste físico ainda não executado)
+- COMMITS: `d687aa0` → `ea3621f`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`
+- GITHUB ACTIONS: run `34763362862` PASS, SHA `ea3621f` conferido; unitários, teste instrumentado de identidade/arquivamento, migration/reopen e build operationalDebug concluídos
+- ROOM VERSION: 15
+- MIGRATION: nenhuma alteração de schema; arquivamento usa `archivedAtEpochMillis` existente
+- ALTERAÇÕES: DAOs e repository passaram a consultar ativos, pesquisar por identidade, preservar IDs em edição e arquivar sem apagar; tela de Projetos ganhou criação/listagem/pesquisa/edição/arquivamento; Banco de Estações ganhou criação/listagem/pesquisa/edição/município explícito/arquivamento/histórico; referências RN/MT/PA são reutilizadas por estação+tipo+código; DRAFT não é gravado antes de Projeto e Estação reais existirem
+- LIMITAÇÕES: fluxo de recuperação completa e autosave ainda pertencem ao Bloco 4; teste físico continua pendente
+- PRÓXIMO BLOCO: Bloco 4 — autosave e reidratação completa
