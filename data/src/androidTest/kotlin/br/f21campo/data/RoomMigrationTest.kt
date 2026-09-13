@@ -86,4 +86,55 @@ class RoomMigrationTest {
         database.close()
         context.deleteDatabase(name)
     }
+
+    @Test
+    fun occupationEvidenceSurvivesCloseAndReopen() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "occupation-reopen-${System.currentTimeMillis()}.db"
+        val first = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        first.projectDao().upsert(ProjectEntity("p1", "LH 1", 1L, null))
+        first.stationDao().upsert(StationEntity("s1", "RN 1", "Manaus", null, 2L, null))
+        first.referencePointDao().upsert(ReferencePointEntity("r1", "s1", "RN", "RN-1", null, null))
+        first.occupationDao().upsert(
+            OccupationEntity(
+                id = "o1",
+                projectId = "p1",
+                stationId = "s1",
+                referencePointId = "r1",
+                plannedDurationSeconds = 1200L,
+                state = "ACTIVE",
+                plannedStartEpochMillis = 3L,
+                confirmedStartEpochMillis = 4L,
+                confirmedStopEpochMillis = null,
+                receiverModel = "S900",
+                antennaModel = "ASH801",
+                receiverManufacturer = "Spectra",
+                antennaManufacturer = "Spectra",
+                receiverSerial = "rx-1",
+                antennaSerial = "ant-1",
+                hasBeforeHeight = true,
+                beforeHeightMeters = 1.234,
+            ),
+        )
+        first.heightMeasurementDao().upsert(HeightMeasurementEntity("h1", "o1", "BEFORE", 1.234, "VERTICAL", 5L, "unit=mm"))
+        first.occupationEventDao().upsert(OccupationEventEntity("e1", "o1", 6L, "NOTE", "INFO", "observado", "OPERATOR"))
+        first.occupationArtifactDao().upsert(OccupationArtifactEntity("a1", "o1", "RAW_RECEIVER", "/raw/a1", 7L, "sha-a1", 8L))
+        first.close()
+
+        val second = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        val occupation = second.occupationDao().findById("o1")
+        assertEquals("ACTIVE", occupation?.state)
+        assertEquals("r1", occupation?.referencePointId)
+        assertEquals("S900", occupation?.receiverModel)
+        assertEquals(1.234, occupation?.beforeHeightMeters ?: 0.0, 0.000001)
+        assertEquals(1, second.heightMeasurementDao().findByOccupation("o1").size)
+        assertEquals("observado", second.occupationEventDao().findByOccupation("o1").single().description)
+        assertEquals("sha-a1", second.occupationArtifactDao().findByOccupation("o1").single().sha256)
+        second.close()
+        context.deleteDatabase(name)
+    }
 }

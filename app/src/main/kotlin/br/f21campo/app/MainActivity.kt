@@ -400,6 +400,55 @@ private fun StationScreen(repository: ProjectStationRepository) {
             } else uuids.joinToString("\n")
         }
     }
+    suspend fun restorePendingOccupation(pending: Occupation) {
+        val heights = repository.findHeights(pending.id)
+        val recoveredProject = repository.findProject(pending.projectId)
+        val recoveredStation = repository.findStation(pending.stationId)
+        val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
+        occupation = pending
+        occupationPersisted = true
+        projectName = recoveredProject?.name.orEmpty()
+        savedId = recoveredStation?.id
+        stationEditorCreatedAt = recoveredStation?.createdAt
+        name = recoveredStation?.name.orEmpty()
+        locality = recoveredStation?.locality.orEmpty()
+        municipality = recoveredStation?.municipality.orEmpty()
+        receiverModel = pending.equipment?.receiver?.model.orEmpty()
+        receiverManufacturer = pending.equipment?.receiver?.manufacturer.orEmpty()
+        receiverSerial = pending.equipment?.receiver?.serialNumber.orEmpty()
+        antennaModel = pending.equipment?.antenna?.model.orEmpty()
+        antennaManufacturer = pending.equipment?.antenna?.manufacturer.orEmpty()
+        antennaSerial = pending.equipment?.antenna?.serialNumber.orEmpty()
+        durationMinutes = pending.plannedDurationSeconds?.div(60L)?.toString().orEmpty()
+        if (recoveredReference != null) {
+            referenceType = recoveredReference.type
+            referenceCode = recoveredReference.code
+        } else {
+            referenceCode = ""
+        }
+        rawImported = repository.hasRawArtifact(pending.id)
+        rawSummary = repository.rawArtifactSummary(pending.id)
+        fieldEvents = repository.findEvents(pending.id)
+        val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
+        val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
+        beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) }
+        afterUnit = afterHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) }
+        before = beforeHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, beforeUnit)) }.ifEmpty { listOf("") }
+        after = afterHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, afterUnit)) }.ifEmpty { listOf("") }
+        afterRegistered = afterHeights.isNotEmpty()
+        val firstMissingStep = when {
+            projectName.isBlank() -> 1
+            name.isBlank() || locality.isBlank() -> 2
+            recoveredReference == null -> 3
+            pending.equipment == null -> 4
+            !pending.hasBeforeHeight -> 5
+            else -> 6
+        }
+        status = "Rastreio recuperado: ${pending.state}"
+        route = "NEW"
+        newStep = firstMissingStep
+        showHome = false
+    }
     val startNewTracking = {
         name = ""
         projectName = ""
@@ -538,34 +587,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     scope.launch {
                                         val pending = repository.findIncompleteOccupations().firstOrNull()
                                         if (pending != null) {
-                                            val heights = repository.findHeights(pending.id)
-                                            val recoveredProject = repository.findProject(pending.projectId)
-                                            val recoveredStation = repository.findStation(pending.stationId)
-                                            val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
-                                            occupation = pending
-                                            occupationPersisted = true
-                                            projectName = recoveredProject?.name.orEmpty()
-                                            savedId = recoveredStation?.id
-                                            name = recoveredStation?.name.orEmpty()
-                                            locality = recoveredStation?.locality.orEmpty()
-                                            municipality = recoveredStation?.municipality.orEmpty()
-                                            if (recoveredReference != null) {
-                                                referenceType = recoveredReference.type
-                                                referenceCode = recoveredReference.code
-                                            }
-                                            rawImported = repository.hasRawArtifact(pending.id)
-                                            rawSummary = repository.rawArtifactSummary(pending.id)
-                                            val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
-                                            val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
-                                            beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: beforeUnit
-                                            afterUnit = afterHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: afterUnit
-                                            before = beforeHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, beforeUnit)) }.ifEmpty { before }
-                                            after = afterHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, afterUnit)) }.ifEmpty { after }
-                                            afterRegistered = heights.any { it.phase == HeightPhase.AFTER }
-                                            status = "Rastreio recuperado: ${pending.state}"
-                                            route = "NEW"
-                                            newStep = 6
-                                            showHome = false
+                                            restorePendingOccupation(pending)
                                         }
                                     }
                                 }, modifier = Modifier.fillMaxWidth()) { Text("CONTINUAR") }
@@ -581,34 +603,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 scope.launch {
                                     val pending = repository.findIncompleteOccupations().firstOrNull()
                                     if (pending != null) {
-                                        val heights = repository.findHeights(pending.id)
-                                        val recoveredProject = repository.findProject(pending.projectId)
-                                        val recoveredStation = repository.findStation(pending.stationId)
-                                        val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
-                                        occupation = pending
-                                        occupationPersisted = true
-                                        projectName = recoveredProject?.name.orEmpty()
-                                        savedId = recoveredStation?.id
-                                        name = recoveredStation?.name.orEmpty()
-                                        locality = recoveredStation?.locality.orEmpty()
-                                        municipality = recoveredStation?.municipality.orEmpty()
-                                        if (recoveredReference != null) {
-                                            referenceType = recoveredReference.type
-                                            referenceCode = recoveredReference.code
-                                        }
-                                        rawImported = repository.hasRawArtifact(pending.id)
-                                        rawSummary = repository.rawArtifactSummary(pending.id)
-                                        val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
-                                        val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
-                                        beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: beforeUnit
-                                        afterUnit = afterHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) } ?: afterUnit
-                                        before = beforeHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, beforeUnit)) }.ifEmpty { before }
-                                        after = afterHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, afterUnit)) }.ifEmpty { after }
-                                        afterRegistered = heights.any { it.phase == HeightPhase.AFTER }
-                                        status = "Rastreio recuperado: ${pending.state}"
-                                        route = "NEW"
-                                        newStep = 6
-                                        showHome = false
+                                        restorePendingOccupation(pending)
                                     }
                                     else status = "Nenhum rastreio incompleto encontrado"
                                 }
