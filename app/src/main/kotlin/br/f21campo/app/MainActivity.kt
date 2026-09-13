@@ -327,7 +327,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     check(json.optInt("formatVersion", -1) == 1) { "Versão de troca não suportada" }
                     val envelope = DatabaseExchangeJsonCodec.decodeCore(text)
                     val summary = repository.importCoreExchange(envelope).getOrThrow()
-                    "Banco importado: ${summary.projects} projeto(s), ${summary.stations} estação(ões), ${summary.referencePoints} referência(s), ${summary.occupations} ocupação(ões), ${summary.heights} altura(s)"
+                    "Banco importado por upsert: ${summary.projects} projeto(s), ${summary.stations} estação(ões), ${summary.referencePoints} referência(s), ${summary.occupations} ocupação(ões), ${summary.heights} altura(s)"
                 }.onSuccess { status = it }
                     .onFailure { status = "Importação rejeitada: ${it.message ?: "arquivo inválido"}" }
             }
