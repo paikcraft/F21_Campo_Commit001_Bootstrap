@@ -7,6 +7,7 @@ import androidx.room.Upsert
 @Dao
 interface ProjectDao {
     @Upsert suspend fun upsert(project: ProjectEntity)
+    @Upsert suspend fun upsertAll(projects: List<ProjectEntity>)
     @Query("SELECT * FROM projects WHERE id = :id") suspend fun findById(id: String): ProjectEntity?
     @Query("SELECT * FROM projects ORDER BY createdAtEpochMillis DESC") suspend fun findAll(): List<ProjectEntity>
 }
@@ -14,6 +15,7 @@ interface ProjectDao {
 @Dao
 interface StationDao {
     @Upsert suspend fun upsert(station: StationEntity)
+    @Upsert suspend fun upsertAll(stations: List<StationEntity>)
     @Query("SELECT * FROM stations WHERE id = :id") suspend fun findById(id: String): StationEntity?
     @Query("SELECT * FROM stations ORDER BY createdAtEpochMillis DESC") suspend fun findAll(): List<StationEntity>
 }
@@ -21,6 +23,7 @@ interface StationDao {
 @Dao
 interface ReferencePointDao {
     @Upsert suspend fun upsert(referencePoint: ReferencePointEntity)
+    @Upsert suspend fun upsertAll(referencePoints: List<ReferencePointEntity>)
     @Query("SELECT * FROM reference_points WHERE id = :id") suspend fun findById(id: String): ReferencePointEntity?
     @Query("SELECT * FROM reference_points WHERE stationId = :stationId ORDER BY code") suspend fun findByStation(stationId: String): List<ReferencePointEntity>
     @Query("SELECT * FROM reference_points ORDER BY stationId, code") suspend fun findAll(): List<ReferencePointEntity>

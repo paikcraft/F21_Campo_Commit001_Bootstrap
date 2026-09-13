@@ -1,5 +1,6 @@
 package br.f21campo.data
 
+import androidx.room.withTransaction
 import br.f21campo.domain.DomainResult
 import br.f21campo.domain.EntityId
 import br.f21campo.domain.Project
@@ -26,7 +27,20 @@ class ProjectStationRepository(
     private val eventDao: OccupationEventDao? = null,
     private val heightDao: HeightMeasurementDao? = null,
     private val connectionProfileDao: ReceiverConnectionProfileDao? = null,
+    private val database: F21Database? = null,
 ) {
+    suspend fun importCoreExchange(envelope: DatabaseExchangeEnvelope): Result<Unit> {
+        envelope.validate().getOrElse { return Result.failure(it) }
+        val db = database ?: return Result.failure(IllegalStateException("Banco não configurado para importação"))
+        return runCatching {
+            db.withTransaction {
+                projectDao.upsertAll(envelope.projects)
+                stationDao.upsertAll(envelope.stations)
+                referencePointDao?.upsertAll(envelope.referencePoints)
+                    ?: error("DAO de referências não configurado")
+            }
+        }
+    }
     /** Creates a validated, structured snapshot for future JSON export. No files are written here. */
     suspend fun createDatabaseExchangeEnvelope(): DatabaseExchangeEnvelope {
         val envelope = DatabaseExchangeEnvelope(
