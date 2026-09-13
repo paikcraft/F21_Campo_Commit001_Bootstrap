@@ -40,6 +40,8 @@ class ProjectStationRepository(
                     ?: error("DAO de referências não configurado")
                 occupationDao?.upsertAll(envelope.occupations)
                     ?: error("DAO de ocupações não configurado")
+                heightDao?.upsertAll(envelope.heightMeasurements)
+                    ?: error("DAO de alturas não configurado")
             }
         }
     }
