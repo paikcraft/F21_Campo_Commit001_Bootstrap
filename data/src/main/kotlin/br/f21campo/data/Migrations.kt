@@ -113,6 +113,14 @@ object Migrations {
         }
     }
 
+    val V17_TO_V18 = object : Migration(17, 18) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS audit_events (id TEXT NOT NULL PRIMARY KEY, atEpochMillis INTEGER NOT NULL, action TEXT NOT NULL, actor TEXT NOT NULL, entityId TEXT)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_audit_events_entityId ON audit_events(entityId)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_audit_events_atEpochMillis ON audit_events(atEpochMillis)")
+        }
+    }
+
     val ALL = arrayOf(
         V1_TO_V2,
         V2_TO_V3,
@@ -130,5 +138,6 @@ object Migrations {
         V14_TO_V15,
         V15_TO_V16,
         V16_TO_V17,
+        V17_TO_V18,
     )
 }

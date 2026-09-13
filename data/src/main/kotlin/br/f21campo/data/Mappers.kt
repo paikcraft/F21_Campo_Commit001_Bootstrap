@@ -12,6 +12,7 @@ import br.f21campo.domain.Antenna
 import br.f21campo.domain.EquipmentSnapshot
 import br.f21campo.domain.ReceiverCatalogItem
 import br.f21campo.domain.AntennaCatalogItem
+import br.f21campo.domain.AuditEvent
 import java.time.Instant
 
 fun Project.toEntity() = ProjectEntity(id.value, name, createdAt.toEpochMilli(), archivedAt?.toEpochMilli())
@@ -26,3 +27,5 @@ fun ReceiverCatalogItem.toEntity() = ReceiverCatalogEntity(id.value, manufacture
 fun ReceiverCatalogEntity.toDomain() = ReceiverCatalogItem(EntityId(id), manufacturer, model, serialNumber, firmware, Instant.ofEpochMilli(createdAtEpochMillis), archivedAtEpochMillis?.let(Instant::ofEpochMilli))
 fun AntennaCatalogItem.toEntity() = AntennaCatalogEntity(id.value, manufacturer, model, serialNumber, createdAt.toEpochMilli(), archivedAt?.toEpochMilli())
 fun AntennaCatalogEntity.toDomain() = AntennaCatalogItem(EntityId(id), manufacturer, model, serialNumber, Instant.ofEpochMilli(createdAtEpochMillis), archivedAtEpochMillis?.let(Instant::ofEpochMilli))
+fun AuditEvent.toEntity() = AuditEventEntity(id.value, at.toEpochMilli(), action, actor, entityId?.value)
+fun AuditEventEntity.toDomain() = AuditEvent(EntityId(id), Instant.ofEpochMilli(atEpochMillis), action, actor, entityId?.let(::EntityId))

@@ -39,7 +39,7 @@ class RoomMigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate("migration-test", 17, true, *Migrations.ALL)
+        val migrated = helper.runMigrationsAndValidate("migration-test", 18, true, *Migrations.ALL)
         migrated.query("SELECT name FROM projects WHERE id = 'p1'").use { cursor ->
             check(cursor.moveToFirst())
             assertEquals("Comissão 1", cursor.getString(0))
@@ -62,6 +62,10 @@ class RoomMigrationTest {
                 if (cursor.getString(1) == "receiverFirmware") found = true
             }
             assertEquals(true, found)
+        }
+        migrated.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_events'").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals("audit_events", cursor.getString(0))
         }
         migrated.close()
     }
@@ -156,6 +160,7 @@ class RoomMigrationTest {
         first.heightMeasurementDao().upsert(HeightMeasurementEntity("h1", "o1", "BEFORE", 1.234, "VERTICAL", 5L, "unit=mm"))
         first.occupationEventDao().upsert(OccupationEventEntity("e1", "o1", 6L, "NOTE", "INFO", "observado", "OPERATOR"))
         first.occupationArtifactDao().upsert(OccupationArtifactEntity("a1", "o1", "RAW_RECEIVER", "/raw/a1", 7L, "sha-a1", 8L))
+        first.auditEventDao().insert(AuditEventEntity("audit-1", 9L, "OCCUPATION_CREATED", "operator", "o1"))
         first.close()
 
         val second = Room.databaseBuilder(context, F21Database::class.java, name)
@@ -170,6 +175,7 @@ class RoomMigrationTest {
         assertEquals(1, second.heightMeasurementDao().findByOccupation("o1").size)
         assertEquals("observado", second.occupationEventDao().findByOccupation("o1").single().description)
         assertEquals("sha-a1", second.occupationArtifactDao().findByOccupation("o1").single().sha256)
+        assertEquals("OCCUPATION_CREATED", second.auditEventDao().findByEntityId("o1").single().action)
         second.close()
         context.deleteDatabase(name)
     }

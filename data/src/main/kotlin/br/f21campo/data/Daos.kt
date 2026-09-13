@@ -72,6 +72,18 @@ interface HeightMeasurementDao {
 }
 
 @Dao
+interface AuditEventDao {
+    @androidx.room.Insert
+    suspend fun insert(event: AuditEventEntity)
+
+    @Query("SELECT * FROM audit_events WHERE entityId = :entityId ORDER BY atEpochMillis, id")
+    suspend fun findByEntityId(entityId: String): List<AuditEventEntity>
+
+    @Query("SELECT * FROM audit_events ORDER BY atEpochMillis, id")
+    suspend fun findAll(): List<AuditEventEntity>
+}
+
+@Dao
 interface ReceiverConnectionProfileDao {
     @Upsert suspend fun upsert(profile: ReceiverConnectionProfileEntity)
     @Upsert suspend fun upsertAll(profiles: List<ReceiverConnectionProfileEntity>)

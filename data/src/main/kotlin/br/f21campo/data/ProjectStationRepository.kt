@@ -9,6 +9,7 @@ import br.f21campo.domain.ReferencePoint
 import br.f21campo.domain.ReferencePointType
 import br.f21campo.domain.ReceiverCatalogItem
 import br.f21campo.domain.AntennaCatalogItem
+import br.f21campo.domain.AuditEvent
 import br.f21campo.domain.Occupation
 import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.HeightMeasurement
@@ -45,6 +46,7 @@ class ProjectStationRepository(
     private val database: F21Database? = null,
     private val receiverCatalogDao: ReceiverCatalogDao? = null,
     private val antennaCatalogDao: AntennaCatalogDao? = null,
+    private val auditEventDao: AuditEventDao? = null,
 ) {
     suspend fun importCoreExchange(envelope: DatabaseExchangeEnvelope): Result<DatabaseImportSummary> {
         envelope.validate().getOrElse { return Result.failure(it) }
@@ -291,6 +293,15 @@ class ProjectStationRepository(
         dao.upsert(item.toEntity())
         return DomainResult.Success(Unit)
     }
+
+    suspend fun saveAudit(event: AuditEvent): DomainResult<Unit> {
+        val dao = auditEventDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("audit", "DAO not configured"))
+        dao.insert(event.toEntity())
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun findAuditEvents(entityId: EntityId): List<AuditEvent> =
+        auditEventDao?.findByEntityId(entityId.value)?.map(AuditEventEntity::toDomain).orEmpty()
 
     suspend fun archiveReceiverCatalog(id: EntityId, archivedAt: Instant = Instant.now()): DomainResult<Unit> {
         val dao = receiverCatalogDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("receiverCatalog", "DAO not configured"))

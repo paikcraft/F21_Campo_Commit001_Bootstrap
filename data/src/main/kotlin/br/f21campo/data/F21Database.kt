@@ -4,7 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [ProjectEntity::class, StationEntity::class, ReferencePointEntity::class, OccupationEntity::class, OccupationArtifactEntity::class, OccupationEventEntity::class, HeightMeasurementEntity::class, ReceiverConnectionProfileEntity::class, ReceiverCatalogEntity::class, AntennaCatalogEntity::class], version = 17, exportSchema = true)
+@Database(entities = [ProjectEntity::class, StationEntity::class, ReferencePointEntity::class, OccupationEntity::class, OccupationArtifactEntity::class, OccupationEventEntity::class, HeightMeasurementEntity::class, AuditEventEntity::class, ReceiverConnectionProfileEntity::class, ReceiverCatalogEntity::class, AntennaCatalogEntity::class], version = 18, exportSchema = true)
 @TypeConverters(F21Converters::class)
 abstract class F21Database : RoomDatabase() {
     abstract fun projectDao(): ProjectDao
@@ -14,6 +14,7 @@ abstract class F21Database : RoomDatabase() {
     abstract fun occupationArtifactDao(): OccupationArtifactDao
     abstract fun occupationEventDao(): OccupationEventDao
     abstract fun heightMeasurementDao(): HeightMeasurementDao
+    abstract fun auditEventDao(): AuditEventDao
     abstract fun receiverConnectionProfileDao(): ReceiverConnectionProfileDao
     abstract fun receiverCatalogDao(): ReceiverCatalogDao
     abstract fun antennaCatalogDao(): AntennaCatalogDao

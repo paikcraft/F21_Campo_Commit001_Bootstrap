@@ -73,6 +73,7 @@ import br.f21campo.domain.ReferencePointType
 import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.OccupationEventCategory
 import br.f21campo.domain.EventSeverity
+import br.f21campo.domain.AuditEvent
 import br.f21campo.domain.HeightMeasurement
 import br.f21campo.domain.TrackingTimer
 import br.f21campo.domain.OccupationReadiness
@@ -93,6 +94,7 @@ import kotlinx.coroutines.Dispatchers
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -202,6 +204,31 @@ private fun FieldTopBar(
     }
 }
 
+@Composable
+private fun EventCaptureControls(
+    category: OccupationEventCategory,
+    onCategoryChange: (OccupationEventCategory) -> Unit,
+    severity: EventSeverity,
+    onSeverityChange: (EventSeverity) -> Unit,
+    fieldBlueDark: Color,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("CLASSIFICAÇÃO DO EVENTO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OccupationEventCategory.entries.forEach { item ->
+                    OutlinedButton(onClick = { onCategoryChange(item) }, enabled = category != item) { Text(item.name) }
+                }
+            }
+            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                EventSeverity.entries.forEach { item ->
+                    OutlinedButton(onClick = { onSeverityChange(item) }, enabled = severity != item) { Text(item.name) }
+                }
+            }
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -222,6 +249,7 @@ class MainActivity : ComponentActivity() {
                     database,
                     database.receiverCatalogDao(),
                     database.antennaCatalogDao(),
+                    database.auditEventDao(),
                 ),
             )
         }
@@ -257,8 +285,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var afterType by remember { mutableStateOf(HeightType.VERTICAL) }
     var event by remember { mutableStateOf("") }
     var fieldEvents by remember { mutableStateOf(emptyList<OccupationEvent>()) }
+    var auditEvents by remember { mutableStateOf(emptyList<AuditEvent>()) }
     var referenceCode by remember { mutableStateOf("") }
     var referenceType by remember { mutableStateOf(ReferencePointType.RN) }
+    var eventCategory by remember { mutableStateOf(OccupationEventCategory.NOTE) }
+    var eventSeverity by remember { mutableStateOf(EventSeverity.INFO) }
     var showHome by remember { mutableStateOf(true) }
     var route by remember { mutableStateOf("HOME") }
     var newStep by remember { mutableStateOf(1) }
@@ -311,6 +342,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
     val tcpTransport = remember { TcpReceiverTransport() }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val recordAudit: (String) -> Unit = { action ->
+        scope.launch {
+            repository.saveAudit(AuditEvent(EntityId.new(), Instant.now(), action, "operator", occupation.id))
+            auditEvents = repository.findAuditEvents(occupation.id)
+        }
+    }
     val updateBluetoothDiscoveryStatus by rememberUpdatedState<(String) -> Unit> { message -> bluetoothDiscoveryStatus = message }
     val bluetoothDiscoveryReceiver = remember {
         object : BroadcastReceiver() {
@@ -369,6 +406,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
             imported.delete()
             scope.launch {
                 repository.saveRawArtifact(occupation.id, stored.path.absolutePath, stored.sizeBytes, stored.sha256)
+                recordAudit("RAW_IMPORTED_SHA256")
                 rawImported = true
                 rawSummary = "${stored.sha256.take(12)} · ${stored.sizeBytes} bytes"
                 status = "Bruto RAW_RECEIVER importado: ${stored.sha256.take(12)}…"
@@ -455,6 +493,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         rawImported = repository.hasRawArtifact(pending.id)
         rawSummary = repository.rawArtifactSummary(pending.id)
         fieldEvents = repository.findEvents(pending.id)
+        auditEvents = repository.findAuditEvents(pending.id)
         val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
         val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
         beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) }
@@ -510,6 +549,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
         afterType = HeightType.VERTICAL
         afterRegistered = false
         event = ""
+        eventCategory = OccupationEventCategory.NOTE
+        eventSeverity = EventSeverity.INFO
         referenceCode = ""
         referenceType = ReferencePointType.RN
         rawImported = false
@@ -526,7 +567,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
     LaunchedEffect(occupation, occupationPersisted) {
         if (occupationPersisted) repository.save(occupation)
     }
-    LaunchedEffect(occupation.id) { fieldEvents = repository.findEvents(occupation.id) }
+    LaunchedEffect(occupation.id) {
+        fieldEvents = repository.findEvents(occupation.id)
+        auditEvents = repository.findAuditEvents(occupation.id)
+    }
     LaunchedEffect(occupation.state, occupation.confirmedStart) {
         while (occupation.state == OccupationState.ACTIVE) {
             nowEpochMillis = System.currentTimeMillis()
@@ -1444,7 +1488,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo da antena") })
                     OutlinedTextField(antennaManufacturer, { antennaManufacturer = it }, label = { Text("Fabricante da antena") })
                     OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Nº de série da antena") })
-                    Button(onClick = { val receiver = Receiver(EntityId.new(), receiverManufacturer.ifBlank { null }, receiverModel.ifBlank { "manual" }, receiverSerial.ifBlank { null }, firmware = receiverFirmware.ifBlank { null }); val antenna = Antenna(EntityId.new(), antennaManufacturer.ifBlank { null }, antennaModel.ifBlank { "manual" }, antennaSerial.ifBlank { null }); val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna); if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado"; newStep = 5 } }) { Text("ASSOCIAR E AVANÇAR") }
+                    Button(onClick = { val receiver = Receiver(EntityId.new(), receiverManufacturer.ifBlank { null }, receiverModel.ifBlank { "manual" }, receiverSerial.ifBlank { null }, firmware = receiverFirmware.ifBlank { null }); val antenna = Antenna(EntityId.new(), antennaManufacturer.ifBlank { null }, antennaModel.ifBlank { "manual" }, antennaSerial.ifBlank { null }); val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna); if (result is DomainResult.Success) { occupation = result.value; recordAudit("EQUIPMENT_ASSOCIATED"); status = "Equipamento associado"; newStep = 5 } }) { Text("ASSOCIAR E AVANÇAR") }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = {
                             scope.launch {
@@ -1514,6 +1558,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     HeightPhase.BEFORE,
                                     values.map { value -> HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, beforeType, Instant.now(), "unit=${beforeUnit}") },
                                 )
+                                recordAudit("HEIGHT_BEFORE_RECORDED")
                                 status = "${values.size} altura(s) BEFORE registrada(s) em ${beforeUnit} — pronto para READY"
                                 newStep = 6
                             }
@@ -1557,6 +1602,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             val result = OccupationStateMachine.ready(occupation)
                             if (result is DomainResult.Success) {
                                 occupation = result.value
+                                recordAudit("OCCUPATION_READY")
                                 status = "READY confirmado — toque em INICIAR"
                             } else {
                                 status = "READY bloqueado pela máquina de estados"
@@ -1565,7 +1611,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }, modifier = Modifier.fillMaxWidth()) { Text("READY") }
                     Button(enabled = occupation.state == OccupationState.READY, onClick = {
                         val result = OccupationStateMachine.start(occupation, Instant.now())
-                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; route = "ACTIVE"; status = "Rastreio iniciado" }
+                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; recordAudit("OCCUPATION_STARTED"); route = "ACTIVE"; status = "Rastreio iniciado" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.READY) {
@@ -1583,7 +1629,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     Button(onClick = {
                         val result = OccupationStateMachine.start(occupation, Instant.now())
-                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; route = "ACTIVE"; status = "Rastreio iniciado" }
+                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; recordAudit("OCCUPATION_STARTED"); route = "ACTIVE"; status = "Rastreio iniciado" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR RASTREIO") }
                     Text(status)
                 } else if (route == "ACTIVE" && occupation.state == OccupationState.ACTIVE) {
@@ -1610,30 +1656,33 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Text("Antena: ${occupation.equipment?.antenna?.model ?: antennaModel.ifBlank { "manual" }}")
                         }
                     }
+                    EventCaptureControls(eventCategory, { eventCategory = it }, eventSeverity, { eventSeverity = it }, fieldBlueDark)
                     OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") }, modifier = Modifier.fillMaxWidth())
                     Button(onClick = {
                         if (event.isNotBlank()) {
                             scope.launch {
-                                repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), OccupationEventCategory.NOTE, EventSeverity.INFO, event.trim()))
+                                repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), eventCategory, eventSeverity, event.trim()))
+                                recordAudit("OCCUPATION_EVENT_${eventCategory.name}")
                                 fieldEvents = repository.findEvents(occupation.id)
                                 event = ""
                                 status = "Evento registrado"
                             }
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR EVENTO") }
-                    if (fieldEvents.isNotEmpty()) {
+                    if (fieldEvents.isNotEmpty() || auditEvents.isNotEmpty()) {
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("EVENTOS REGISTRADOS (${fieldEvents.size})", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                Text("LINHA DO TEMPO · ${fieldEvents.size} evento(s) · ${auditEvents.size} auditoria(s)", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                                 fieldEvents.takeLast(3).forEach { savedEvent ->
-                                    Text("${savedEvent.at}: ${savedEvent.description}")
+                                    Text("${savedEvent.at}: ${savedEvent.category}/${savedEvent.severity} · ${savedEvent.description}")
                                 }
+                                auditEvents.takeLast(3).forEach { savedAudit -> Text("${savedAudit.at}: ${savedAudit.action} · ${savedAudit.actor}", style = MaterialTheme.typography.bodySmall) }
                             }
                         }
                     }
                     Button(onClick = {
                         val result = OccupationStateMachine.stop(occupation, Instant.now())
-                        if (result is DomainResult.Success) { occupation = result.value; route = "FINALIZATION"; status = "Rastreio parado — finalização" }
+                        if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_STOPPED"); route = "FINALIZATION"; status = "Rastreio parado — finalização" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("PARAR RASTREIO") }
                     Text(status)
                 } else if (route == "FINALIZATION" && occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
@@ -1683,6 +1732,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 HeightPhase.AFTER,
                                 values.map { value -> HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, afterType, Instant.now(), "unit=${afterUnit}") },
                             )
+                            recordAudit("HEIGHT_AFTER_RECORDED")
                             afterRegistered = true
                             status = "${values.size} altura(s) AFTER registrada(s) em ${afterUnit}"
                         }
@@ -1692,9 +1742,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text(if (afterRegistered) "Altura AFTER registrada" else "Altura AFTER pendente")
                     Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
                         val result = OccupationStateMachine.collectWithEvidence(occupation, hasRawEvidence = rawImported, hasAfterHeight = afterRegistered)
-                        if (result is DomainResult.Success) occupation = result.value
+                        if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_COLLECTED") }
                     }) { Text("FINALIZAR COLETA") }
-                    Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) occupation = result.value }) { Text("VALIDAR RASTREIO") }
+                    Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = { val result = OccupationStateMachine.validate(occupation); if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_VALIDATED") } }) { Text("VALIDAR RASTREIO") }
                     Text("Resumo: início ${occupation.confirmedStart ?: "—"} · fim ${occupation.confirmedStop ?: "—"}")
                     if (fieldEvents.isNotEmpty()) Text("Eventos registrados: ${fieldEvents.size}")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1712,9 +1762,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("CRONÔMETRO: ${activeElapsed?.let { "${it / 60}m ${it % 60}s" } ?: "aguardando"}")
                     Text("Receptor: ${occupation.equipment?.receiver?.model ?: receiverModel.ifBlank { "manual" }}")
                     Text("Antena: ${occupation.equipment?.antenna?.model ?: antennaModel.ifBlank { "manual" }}")
+                    EventCaptureControls(eventCategory, { eventCategory = it }, eventSeverity, { eventSeverity = it }, fieldBlueDark)
                     OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
-                    Button(onClick = { if (event.isNotBlank()) scope.launch { repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), OccupationEventCategory.NOTE, EventSeverity.INFO, event.trim())); event = ""; status = "Evento registrado" } }) { Text("REGISTRAR EVENTO") }
-                    Button(onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; route = "FINALIZATION"; status = "Rastreio parado — finalização" } }) { Text("PARAR RASTREIO") }
+                    Button(onClick = { if (event.isNotBlank()) scope.launch { repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), eventCategory, eventSeverity, event.trim())); recordAudit("OCCUPATION_EVENT_${eventCategory.name}"); event = ""; status = "Evento registrado" } }) { Text("REGISTRAR EVENTO") }
+                    Button(onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_STOPPED"); route = "FINALIZATION"; status = "Rastreio parado — finalização" } }) { Text("PARAR RASTREIO") }
                 } else {
                 Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
                 Text("Versão ${BuildConfig.VERSION_NAME}")
@@ -1789,11 +1840,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val receiver = Receiver(EntityId.new(), manufacturer = receiverManufacturer.ifBlank { null }, model = receiverModel.ifBlank { "manual" }, serialNumber = receiverSerial.ifBlank { null }, firmware = receiverFirmware.ifBlank { null })
                     val antenna = Antenna(EntityId.new(), manufacturer = antennaManufacturer.ifBlank { null }, model = antennaModel.ifBlank { "manual" }, serialNumber = antennaSerial.ifBlank { null })
                     val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna)
-                    if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado" }
+                    if (result is DomainResult.Success) { occupation = result.value; recordAudit("EQUIPMENT_ASSOCIATED"); status = "Equipamento associado" }
                 }) { Text("Associar receptor e antena") }
                 Button(enabled = occupation.state == OccupationState.DRAFT, onClick = {
                     val result = OccupationStateMachine.ready(occupation)
-                    if (result is DomainResult.Success) { occupation = result.value; status = "READY confirmado — INICIAR está disponível" }
+                    if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_READY"); status = "READY confirmado — INICIAR está disponível" }
                     else {
                         if (occupation.referencePointId == null) newStep = 3
                         else if (!occupation.hasBeforeHeight) newStep = 5
@@ -1808,15 +1859,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     if (occupation.referencePointId == null) Button(onClick = { newStep = 3 }) { Text("IR PARA REFERÊNCIA") }
                     if (!occupation.hasBeforeHeight) Button(onClick = { newStep = 5 }) { Text("IR PARA ALTURA BEFORE") }
                 }
-                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; route = "ACTIVE"; status = "Rastreio iniciado" } }) { Text("INICIAR") }
-                Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; route = "FINALIZATION"; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
+                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; recordAudit("OCCUPATION_STARTED"); route = "ACTIVE"; status = "Rastreio iniciado" } }) { Text("INICIAR") }
+                Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_STOPPED"); route = "FINALIZATION"; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
                 Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
                     val result = OccupationStateMachine.collectWithEvidence(occupation, hasRawEvidence = rawImported, hasAfterHeight = afterRegistered)
-                    if (result is DomainResult.Success) { occupation = result.value; status = "Coleta finalizada — pronta para resumo" }
+                    if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_COLLECTED"); status = "Coleta finalizada — pronta para resumo" }
                 }) { Text("FINALIZAR COLETA") }
                 Button(enabled = occupation.state == OccupationState.COLLECTED, onClick = {
                     val result = OccupationStateMachine.validate(occupation)
-                    if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio validado" }
+                    if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_VALIDATED"); status = "Rastreio validado" }
                 }) { Text("VALIDAR RASTREIO") }
                 if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
                     Text("Resumo do rastreio")
@@ -1851,6 +1902,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = validBefore)
                         scope.launch {
                             repository.replaceHeights(occupation.id, HeightPhase.BEFORE, before.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }.map { value -> HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, beforeType, Instant.now(), "unit=${beforeUnit}") })
+                            recordAudit("HEIGHT_BEFORE_RECORDED")
                             status = "${before.count { it.toDoubleOrNull() != null }} altura(s) BEFORE registrada(s)"
                         }
                     } else {
@@ -1873,14 +1925,17 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val values = after.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }
                     if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura AFTER" else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida" else scope.launch {
                         repository.replaceHeights(occupation.id, HeightPhase.AFTER, values.map { value -> HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, afterType, Instant.now(), "unit=${afterUnit}") })
+                        recordAudit("HEIGHT_AFTER_RECORDED")
                         status = "${values.size} altura(s) AFTER registrada(s)"
                     }
                 }) { Text("Registrar alturas AFTER") }
+                EventCaptureControls(eventCategory, { eventCategory = it }, eventSeverity, { eventSeverity = it }, fieldBlueDark)
                 OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
                 Button(onClick = {
                     if (event.isNotBlank()) {
                         scope.launch {
-                            repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), OccupationEventCategory.NOTE, EventSeverity.INFO, event.trim()))
+                            repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), eventCategory, eventSeverity, event.trim()))
+                            recordAudit("OCCUPATION_EVENT_${eventCategory.name}")
                             status = "Evento registrado: $event"
                             event = ""
                         }
