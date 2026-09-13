@@ -129,3 +129,17 @@
 - ALTERAÇÕES: associação RAW deduplica por SHA-256 dentro da ocupação; inventário mostra nome, tamanho e hash completo; verificação pós-cópia recalcula tamanho/hash; teste de arquivo corrompido; auditoria registra verificação válida ou inválida
 - LIMITAÇÕES: a importação continua sendo seleção de arquivo já presente/acessível ao Android, não download remoto da antena; teste físico do seletor e persistência após reinstalação ainda pendente
 - PRÓXIMO BLOCO: Bloco 10 — teste automatizado end-to-end do Gate R2 e pacote operacional para teste físico
+
+## 2026-09-13 — Bloco 10
+
+- BLOCO: teste automatizado end-to-end do Gate R2 e pacote operacional para teste físico
+- STATUS: READY_FOR_PHYSICAL_TEST (automação, build e Actions PASS; confirmação física ainda não executada)
+- COMMIT: `e1e2891`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`/Gradle global
+- GITHUB ACTIONS: run `34769326389` PASS, SHA `e1e2891af2e747a26ec25d205e470830dc33a4e0` conferido; testes unitários, instrumentados, build `operationalDebug`, upload do APK e schemas concluídos
+- ROOM VERSION: 18
+- MIGRATION: nenhuma alteração neste bloco; cadeia V1→V18 permanece explícita e sem destructive migration
+- ALTERAÇÕES: criado `GateR2EndToEndTest` cobrindo Project → Station → ReferencePoint → Occupation → equipamento/snapshots → BEFORE → READY → ACTIVE → evento → STOPPED → AFTER → RAW/SHA-256 → COLLECTED → VALIDATED → fechamento/reabertura; versão do APK incrementada para `0.1.10-dev`/versionCode 11
+- APK OPERATIONAL: artefato do run `34769326389`; SHA-256 `985DE14D5A07D8AF62D7F3598C729E49EDABC051833EC3E73DD900C85DD9B830`
+- LIMITAÇÕES: teste físico do fluxo completo, teclado/rolagem, fechamento pelo sistema e confirmação visual ainda dependem do aparelho; RAW continua sendo arquivo selecionado no dispositivo, sem download da antena; Spectra, PPA, RINEX completo e renderer F-21 permanecem fora do escopo
+- PRÓXIMO BLOCO: pausa humana para teste físico do Gate R2; somente após confirmação PASS avaliar Spectra B1 READ_ONLY
