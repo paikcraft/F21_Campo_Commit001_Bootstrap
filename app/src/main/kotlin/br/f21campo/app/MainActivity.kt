@@ -244,8 +244,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         @Suppress("DEPRECATION")
                         val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                         val entry = device?.let { it.name.orEmpty() to it.address.orEmpty() }
-                        if (entry != null && entry.second.isNotBlank() && entry !in discoveredBluetoothDevices) {
-                            discoveredBluetoothDevices += entry
+                        if (entry != null && entry.second.isNotBlank()) {
+                            val previousIndex = discoveredBluetoothDevices.indexOfFirst { it.second == entry.second }
+                            if (previousIndex >= 0) {
+                                discoveredBluetoothDevices[previousIndex] = entry
+                            } else {
+                                discoveredBluetoothDevices += entry
+                            }
                         }
                     }
                     android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
