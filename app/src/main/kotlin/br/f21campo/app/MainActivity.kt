@@ -160,6 +160,39 @@ private fun StepHeader(step: Int, title: String, detail: String, fieldBlueDark: 
     }
 }
 
+@Composable
+private fun FieldTopBar(
+    title: String,
+    subtitle: String,
+    showBack: Boolean,
+    onBack: () -> Unit,
+    fieldBlueDark: Color,
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = fieldBlueDark),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (showBack) {
+                OutlinedButton(onClick = onBack) { Text("‹", color = Color.White, style = MaterialTheme.typography.titleLarge) }
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, color = Color.White, style = MaterialTheme.typography.titleLarge)
+                Text(subtitle, color = Color(0xFFD5EAF5), style = MaterialTheme.typography.bodySmall)
+            }
+            Text(
+                BuildConfig.BUILD_MODE,
+                color = Color(0xFFD5EAF5),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -445,6 +478,25 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                if (route != "HOME") {
+                    val routeTitle = when (route) {
+                        "NEW" -> "Novo rastreio"
+                        "PROJECTS" -> "Projetos"
+                        "STATIONS" -> "Banco de estações"
+                        "CONNECTION" -> "Conexão de bancada"
+                        "SETTINGS" -> "Configurações"
+                        "ABOUT" -> "Sobre"
+                        "SUMMARY" -> "Resumo do rastreio"
+                        else -> "F-21 Campo"
+                    }
+                    FieldTopBar(
+                        title = routeTitle,
+                        subtitle = "F-21 Campo · ${BuildConfig.VERSION_NAME}",
+                        showBack = true,
+                        onBack = { route = "HOME"; showHome = true },
+                        fieldBlueDark = fieldBlueDark,
+                    )
+                }
                 if (route == "HOME") {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
