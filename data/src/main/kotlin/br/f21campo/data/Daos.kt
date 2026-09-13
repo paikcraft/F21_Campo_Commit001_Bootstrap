@@ -10,6 +10,9 @@ interface ProjectDao {
     @Upsert suspend fun upsertAll(projects: List<ProjectEntity>)
     @Query("SELECT * FROM projects WHERE id = :id") suspend fun findById(id: String): ProjectEntity?
     @Query("SELECT * FROM projects ORDER BY createdAtEpochMillis DESC") suspend fun findAll(): List<ProjectEntity>
+    @Query("SELECT * FROM projects WHERE archivedAtEpochMillis IS NULL ORDER BY createdAtEpochMillis DESC") suspend fun findActive(): List<ProjectEntity>
+    @Query("SELECT * FROM projects WHERE archivedAtEpochMillis IS NULL AND lower(name) = lower(:name) LIMIT 1") suspend fun findActiveByName(name: String): ProjectEntity?
+    @Query("UPDATE projects SET archivedAtEpochMillis = :archivedAtEpochMillis WHERE id = :id") suspend fun archive(id: String, archivedAtEpochMillis: Long)
 }
 
 @Dao
@@ -18,6 +21,9 @@ interface StationDao {
     @Upsert suspend fun upsertAll(stations: List<StationEntity>)
     @Query("SELECT * FROM stations WHERE id = :id") suspend fun findById(id: String): StationEntity?
     @Query("SELECT * FROM stations ORDER BY createdAtEpochMillis DESC") suspend fun findAll(): List<StationEntity>
+    @Query("SELECT * FROM stations WHERE archivedAtEpochMillis IS NULL ORDER BY createdAtEpochMillis DESC") suspend fun findActive(): List<StationEntity>
+    @Query("SELECT * FROM stations WHERE archivedAtEpochMillis IS NULL AND name = :name AND ((locality = :locality) OR (locality IS NULL AND :locality IS NULL)) LIMIT 1") suspend fun findActiveByIdentity(name: String, locality: String?): StationEntity?
+    @Query("UPDATE stations SET archivedAtEpochMillis = :archivedAtEpochMillis WHERE id = :id") suspend fun archive(id: String, archivedAtEpochMillis: Long)
 }
 
 @Dao
@@ -27,6 +33,7 @@ interface ReferencePointDao {
     @Query("SELECT * FROM reference_points WHERE id = :id") suspend fun findById(id: String): ReferencePointEntity?
     @Query("SELECT * FROM reference_points WHERE stationId = :stationId ORDER BY code") suspend fun findByStation(stationId: String): List<ReferencePointEntity>
     @Query("SELECT * FROM reference_points ORDER BY stationId, code") suspend fun findAll(): List<ReferencePointEntity>
+    @Query("SELECT * FROM reference_points WHERE stationId = :stationId AND type = :type AND code = :code LIMIT 1") suspend fun findByStationTypeAndCode(stationId: String, type: String, code: String): ReferencePointEntity?
 }
 
 @Dao

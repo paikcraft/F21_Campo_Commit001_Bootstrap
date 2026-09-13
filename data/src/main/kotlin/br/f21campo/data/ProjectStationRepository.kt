@@ -6,6 +6,7 @@ import br.f21campo.domain.EntityId
 import br.f21campo.domain.Project
 import br.f21campo.domain.Station
 import br.f21campo.domain.ReferencePoint
+import br.f21campo.domain.ReferencePointType
 import br.f21campo.domain.Occupation
 import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.HeightMeasurement
@@ -102,8 +103,30 @@ class ProjectStationRepository(
     suspend fun findReferencePoint(id: EntityId): ReferencePoint? = referencePointDao?.findById(id.value)?.toDomain()
     suspend fun findReferencePointsByStation(stationId: EntityId): List<ReferencePoint> =
         referencePointDao?.findByStation(stationId.value)?.map(ReferencePointEntity::toDomain).orEmpty()
-    suspend fun findAllProjects(): List<Project> = projectDao.findAll().map(ProjectEntity::toDomain)
-    suspend fun findAllStations(): List<Station> = stationDao.findAll().map(StationEntity::toDomain)
+    suspend fun findReferencePointByStationTypeAndCode(stationId: EntityId, type: ReferencePointType, code: String): ReferencePoint? =
+        referencePointDao?.findByStationTypeAndCode(stationId.value, type.name, code.trim())?.toDomain()
+
+    suspend fun findAllProjects(includeArchived: Boolean = false): List<Project> =
+        (if (includeArchived) projectDao.findAll() else projectDao.findActive()).map(ProjectEntity::toDomain)
+
+    suspend fun findAllStations(includeArchived: Boolean = false): List<Station> =
+        (if (includeArchived) stationDao.findAll() else stationDao.findActive()).map(StationEntity::toDomain)
+
+    suspend fun findActiveProjectByName(name: String): Project? =
+        projectDao.findActiveByName(name.trim())?.toDomain()
+
+    suspend fun findActiveStationByIdentity(name: String, locality: String?): Station? =
+        stationDao.findActiveByIdentity(name.trim(), locality?.trim()?.ifBlank { null })?.toDomain()
+
+    suspend fun archiveProject(id: EntityId, archivedAt: Instant = Instant.now()): DomainResult<Unit> {
+        projectDao.archive(id.value, archivedAt.toEpochMilli())
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun archiveStation(id: EntityId, archivedAt: Instant = Instant.now()): DomainResult<Unit> {
+        stationDao.archive(id.value, archivedAt.toEpochMilli())
+        return DomainResult.Success(Unit)
+    }
 
     suspend fun save(referencePoint: ReferencePoint): DomainResult<Unit> {
         val dao = referencePointDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("referencePoint", "DAO not configured"))

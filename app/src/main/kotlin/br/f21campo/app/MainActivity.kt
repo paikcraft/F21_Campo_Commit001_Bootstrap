@@ -217,9 +217,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var name by remember { mutableStateOf("") }
     var projectName by remember { mutableStateOf("") }
     var locality by remember { mutableStateOf("") }
+    var municipality by remember { mutableStateOf("") }
     var savedId by remember { mutableStateOf<EntityId?>(null) }
     var status by remember { mutableStateOf("Banco de Estações") }
     var occupation by remember { mutableStateOf(Occupation(EntityId.new(), EntityId.new(), EntityId.new())) }
+    var occupationPersisted by remember { mutableStateOf(false) }
     var receiverModel by remember { mutableStateOf("") }
     var antennaModel by remember { mutableStateOf("") }
     var receiverManufacturer by remember { mutableStateOf("") }
@@ -241,6 +243,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var newStep by remember { mutableStateOf(1) }
     var projects by remember { mutableStateOf(emptyList<br.f21campo.domain.Project>()) }
     var stations by remember { mutableStateOf(emptyList<Station>()) }
+    var projectSearch by remember { mutableStateOf("") }
+    var stationSearch by remember { mutableStateOf("") }
+    var projectEditorId by remember { mutableStateOf<EntityId?>(null) }
+    var projectEditorCreatedAt by remember { mutableStateOf<Instant?>(null) }
+    var stationEditorCreatedAt by remember { mutableStateOf<Instant?>(null) }
     var referencePoints by remember { mutableStateOf(emptyList<ReferencePoint>()) }
     var stationHistory by remember { mutableStateOf(emptyList<Occupation>()) }
     var reviewedOccupation by remember { mutableStateOf<Occupation?>(null) }
@@ -397,8 +404,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
         name = ""
         projectName = ""
         locality = ""
+        municipality = ""
         savedId = null
         occupation = Occupation(EntityId.new(), EntityId.new(), EntityId.new())
+        occupationPersisted = false
+        projectName = ""
+        projectEditorId = null
+        projectEditorCreatedAt = null
+        stationEditorCreatedAt = null
         receiverModel = ""
         antennaModel = ""
         receiverManufacturer = ""
@@ -424,7 +437,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
         showHome = false
         status = "Etapa 1/7 — Projeto"
     }
-    LaunchedEffect(occupation) { repository.save(occupation) }
+    LaunchedEffect(occupation, occupationPersisted) {
+        if (occupationPersisted) repository.save(occupation)
+    }
     LaunchedEffect(occupation.id) { fieldEvents = repository.findEvents(occupation.id) }
     LaunchedEffect(occupation.state, occupation.confirmedStart) {
         while (occupation.state == OccupationState.ACTIVE) {
@@ -528,10 +543,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                             val recoveredStation = repository.findStation(pending.stationId)
                                             val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
                                             occupation = pending
+                                            occupationPersisted = true
                                             projectName = recoveredProject?.name.orEmpty()
                                             savedId = recoveredStation?.id
                                             name = recoveredStation?.name.orEmpty()
                                             locality = recoveredStation?.locality.orEmpty()
+                                            municipality = recoveredStation?.municipality.orEmpty()
                                             if (recoveredReference != null) {
                                                 referenceType = recoveredReference.type
                                                 referenceCode = recoveredReference.code
@@ -569,10 +586,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         val recoveredStation = repository.findStation(pending.stationId)
                                         val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
                                         occupation = pending
+                                        occupationPersisted = true
                                         projectName = recoveredProject?.name.orEmpty()
                                         savedId = recoveredStation?.id
                                         name = recoveredStation?.name.orEmpty()
                                         locality = recoveredStation?.locality.orEmpty()
+                                        municipality = recoveredStation?.municipality.orEmpty()
                                         if (recoveredReference != null) {
                                             referenceType = recoveredReference.type
                                             referenceCode = recoveredReference.code
@@ -620,24 +639,95 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 } else if (route == "PROJECTS") {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("PROJETOS", color = Color.White, style = MaterialTheme.typography.headlineSmall); Text("Comissões e trabalhos salvos neste aparelho", color = Color(0xFFD5EAF5)) } }
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
-                    OutlinedTextField(name, { name = it }, label = { Text("Nome do projeto/comissão") })
-                    Button(enabled = name.isNotBlank(), onClick = { scope.launch { repository.save(br.f21campo.domain.Project(EntityId.new(), name.trim(), Instant.now())); projects = repository.findAllProjects(); status = "Projeto salvo localmente" } }) { Text("SALVAR PROJETO") }
+                    OutlinedTextField(name, { name = it }, label = { Text("Nome do projeto/comissão") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(projectSearch, { projectSearch = it }, label = { Text("Pesquisar projetos") }, modifier = Modifier.fillMaxWidth())
+                    Button(enabled = name.isNotBlank(), onClick = {
+                        scope.launch {
+                            val project = br.f21campo.domain.Project(
+                                id = projectEditorId ?: EntityId.new(),
+                                name = name.trim(),
+                                createdAt = projectEditorCreatedAt ?: Instant.now(),
+                            )
+                            repository.save(project)
+                            projects = repository.findAllProjects()
+                            projectEditorId = project.id
+                            projectEditorCreatedAt = project.createdAt
+                            status = "Projeto salvo localmente — ID preservado"
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text(if (projectEditorId == null) "SALVAR PROJETO" else "ATUALIZAR PROJETO") }
+                    if (projectEditorId != null) {
+                        OutlinedButton(onClick = {
+                            scope.launch {
+                                repository.archiveProject(projectEditorId!!)
+                                projects = repository.findAllProjects()
+                                name = ""
+                                projectEditorId = null
+                                projectEditorCreatedAt = null
+                                status = "Projeto arquivado localmente; nenhum dado de ocupação foi apagado"
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("ARQUIVAR PROJETO") }
+                    }
                     Text("Projetos salvos neste aparelho", style = MaterialTheme.typography.titleMedium)
-                    if (projects.isEmpty()) Text("Nenhum projeto salvo ainda")
-                    projects.forEach { project ->
-                        Button(onClick = { name = project.name; status = "Projeto selecionado: ${project.name}" }) { Text(project.name) }
+                    val visibleProjects = projects.filter { projectSearch.isBlank() || project.name.contains(projectSearch.trim(), ignoreCase = true) }
+                    if (visibleProjects.isEmpty()) Text(if (projects.isEmpty()) "Nenhum projeto ativo salvo ainda" else "Nenhum projeto corresponde à pesquisa")
+                    visibleProjects.forEach { project ->
+                        OutlinedButton(onClick = {
+                            name = project.name
+                            projectEditorId = project.id
+                            projectEditorCreatedAt = project.createdAt
+                            status = "Projeto aberto: ${project.name} · ID preservado"
+                        }, modifier = Modifier.fillMaxWidth()) { Text("${project.name} · ID ${project.id.value.take(8)}") }
                     }
                     Text(status)
                 } else if (route == "STATIONS") {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text("BANCO DE ESTAÇÕES", color = Color.White, style = MaterialTheme.typography.headlineSmall); Text("Estações e localidades salvas neste aparelho", color = Color(0xFFD5EAF5)) } }
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
-                    OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
-                    OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") })
-                    Button(enabled = name.isNotBlank() && locality.isNotBlank(), onClick = { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name.trim(), locality.trim(), null, Instant.now())); stations = repository.findAllStations(); status = "Estação salva localmente — ID preservado" } }) { Text("SALVAR ESTAÇÃO") }
+                    OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(municipality, { municipality = it }, label = { Text("Município (opcional; não inferido)") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(stationSearch, { stationSearch = it }, label = { Text("Pesquisar estações") }, modifier = Modifier.fillMaxWidth())
+                    Button(enabled = name.isNotBlank() && locality.isNotBlank(), onClick = {
+                        scope.launch {
+                            val existing = savedId?.let { repository.findStation(it) }
+                            val station = Station(
+                                id = savedId ?: EntityId.new(),
+                                name = name.trim(),
+                                locality = locality.trim(),
+                                municipality = municipality.trim().ifBlank { existing?.municipality },
+                                createdAt = stationEditorCreatedAt ?: existing?.createdAt ?: Instant.now(),
+                            )
+                            repository.save(station)
+                            savedId = station.id
+                            stationEditorCreatedAt = station.createdAt
+                            stations = repository.findAllStations()
+                            status = "Estação salva localmente — ID preservado"
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text(if (savedId == null) "SALVAR ESTAÇÃO" else "ATUALIZAR ESTAÇÃO") }
+                    if (savedId != null) {
+                        OutlinedButton(onClick = {
+                            scope.launch {
+                                repository.archiveStation(savedId!!)
+                                stations = repository.findAllStations()
+                                savedId = null
+                                stationEditorCreatedAt = null
+                                stationHistory = emptyList()
+                                status = "Estação arquivada localmente; histórico permanece preservado"
+                            }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("ARQUIVAR ESTAÇÃO") }
+                    }
                     Text("Estações salvas neste aparelho", style = MaterialTheme.typography.titleMedium)
-                    if (stations.isEmpty()) Text("Nenhuma estação salva ainda")
-                    stations.forEach { station ->
-                        Button(onClick = { savedId = station.id; name = station.name; locality = station.locality.orEmpty(); scope.launch { stationHistory = repository.findOccupationsByStation(station.id) }; status = "Estação selecionada: ${station.name}" }) { Text("${station.name} · ${station.locality ?: "sem localidade"}") }
+                    val visibleStations = stations.filter { stationSearch.isBlank() || listOfNotNull(station.name, station.locality, station.municipality).any { value -> value.contains(stationSearch.trim(), ignoreCase = true) } }
+                    if (visibleStations.isEmpty()) Text(if (stations.isEmpty()) "Nenhuma estação ativa salva ainda" else "Nenhuma estação corresponde à pesquisa")
+                    visibleStations.forEach { station ->
+                        OutlinedButton(onClick = {
+                            savedId = station.id
+                            stationEditorCreatedAt = station.createdAt
+                            name = station.name
+                            locality = station.locality.orEmpty()
+                            municipality = station.municipality.orEmpty()
+                            scope.launch { stationHistory = repository.findOccupationsByStation(station.id) }
+                            status = "Estação aberta: ${station.name} · ID preservado"
+                        }, modifier = Modifier.fillMaxWidth()) { Text("${station.name} · ${station.locality ?: "sem localidade"} · ID ${station.id.value.take(8)}") }
                     }
                     if (savedId != null) {
                         Text("HISTÓRICO DE RASTREIOS", style = MaterialTheme.typography.titleMedium)
@@ -1023,7 +1113,21 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
                     StepHeader(1, "PROJETO", "Identifique a comissão ou trabalho de campo.", fieldBlueDark)
                     OutlinedTextField(projectName, { projectName = it }, label = { Text("Nome do projeto/LH") })
-                    Button(onClick = { if (projectName.isBlank()) status = "Informe o nome do projeto/LH" else { scope.launch { val project = br.f21campo.domain.Project(EntityId.new(), projectName.trim(), Instant.now()); repository.save(project); occupation = occupation.copy(projectId = project.id); status = "Projeto salvo localmente"; newStep = 2 } } }) { Text("SALVAR E AVANÇAR") }
+                    Button(onClick = {
+                        if (projectName.isBlank()) {
+                            status = "Informe o nome do projeto/LH"
+                        } else {
+                            scope.launch {
+                                val normalizedName = projectName.trim()
+                                val project = repository.findActiveProjectByName(normalizedName)
+                                    ?: br.f21campo.domain.Project(EntityId.new(), normalizedName, Instant.now())
+                                repository.save(project)
+                                occupation = occupation.copy(projectId = project.id)
+                                status = if (project.id.value.isNotBlank()) "Projeto salvo/selecionado — ID preservado" else "Projeto salvo localmente"
+                                newStep = 2
+                            }
+                        }
+                    }) { Text("SALVAR E AVANÇAR") }
                     if (projects.isNotEmpty()) {
                         Text("OU SELECIONE UM PROJETO SALVO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                         projects.takeLast(4).reversed().forEach { project ->
@@ -1041,7 +1145,29 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     StepHeader(2, "ESTAÇÃO", "Informe a estação desta ocasião de campo.", fieldBlueDark)
                     OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
                     OutlinedTextField(locality, { locality = it }, label = { Text("Localidade") })
-                    Button(onClick = { if (name.isBlank() || locality.isBlank()) status = "Informe o nome da estação e a localidade" else { val id = savedId ?: EntityId.new().also { savedId = it }; scope.launch { repository.save(Station(id, name.trim(), locality.trim(), null, Instant.now())); status = "Estação salva — ID preservado"; newStep = 3 } } }) { Text("SALVAR E AVANÇAR") }
+                    Button(onClick = {
+                        if (name.isBlank() || locality.isBlank()) {
+                            status = "Informe o nome da estação e a localidade"
+                        } else {
+                            scope.launch {
+                                val normalizedName = name.trim()
+                                val normalizedLocality = locality.trim()
+                                val existing = savedId?.let { repository.findStation(it) }
+                                    ?: repository.findActiveStationByIdentity(normalizedName, normalizedLocality)
+                                val station = existing?.copy(
+                                    name = normalizedName,
+                                    locality = normalizedLocality,
+                                    municipality = existing.municipality,
+                                ) ?: Station(EntityId.new(), normalizedName, normalizedLocality, null, Instant.now())
+                                savedId = station.id
+                                repository.save(station)
+                                occupation = occupation.copy(stationId = station.id)
+                                occupationPersisted = true
+                                status = "Estação salva/selecionada — ID preservado"
+                                newStep = 3
+                            }
+                        }
+                    }) { Text("SALVAR E AVANÇAR") }
                     if (stations.isNotEmpty()) {
                         Text("OU SELECIONE UMA ESTAÇÃO SALVA", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                         stations.filter { !it.locality.isNullOrBlank() }.takeLast(4).reversed().forEach { station ->
@@ -1049,6 +1175,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 savedId = station.id
                                 name = station.name
                                 locality = station.locality.orEmpty()
+                                occupation = occupation.copy(stationId = station.id)
+                                occupationPersisted = true
                                 status = "Estação selecionada: ${station.name}"
                                 newStep = 3
                             }, modifier = Modifier.fillMaxWidth()) {
@@ -1062,7 +1190,22 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     StepHeader(3, "REFERÊNCIA", "Escolha RN, MT ou PA e registre o código.", fieldBlueDark)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { ReferencePointType.entries.forEach { type -> Button(onClick = { referenceType = type }, enabled = referenceType != type) { Text(type.name) } } }
                     OutlinedTextField(referenceCode, { referenceCode = it }, label = { Text("Código da referência") })
-                    Button(onClick = { val stationId = savedId; if (stationId == null || referenceCode.isBlank()) status = "Informe estação e código da referência" else { val point = ReferencePoint(EntityId.new(), stationId, referenceType, referenceCode.trim()); scope.launch { repository.save(point); occupation = occupation.copy(stationId = stationId, referencePointId = point.id); status = "Referência ${point.type}: ${point.code} registrada"; newStep = 4 } } }) { Text("SALVAR E AVANÇAR") }
+                    Button(onClick = {
+                        val stationId = savedId
+                        if (stationId == null || referenceCode.isBlank()) {
+                            status = "Informe estação e código da referência"
+                        } else {
+                            scope.launch {
+                                val normalizedCode = referenceCode.trim()
+                                val point = repository.findReferencePointByStationTypeAndCode(stationId, referenceType, normalizedCode)
+                                    ?: ReferencePoint(EntityId.new(), stationId, referenceType, normalizedCode)
+                                repository.save(point)
+                                occupation = occupation.copy(stationId = stationId, referencePointId = point.id)
+                                status = "Referência ${point.type}: ${point.code} salva/selecionada"
+                                newStep = 4
+                            }
+                        }
+                    }) { Text("SALVAR E AVANÇAR") }
                     if (referencePoints.isNotEmpty()) {
                         Text("OU SELECIONE UMA REFERÊNCIA DESTA ESTAÇÃO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                         referencePoints.forEach { point ->
@@ -1070,6 +1213,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 referenceType = point.type
                                 referenceCode = point.code
                                 occupation = occupation.copy(stationId = point.stationId, referencePointId = point.id)
+                                occupationPersisted = true
                                 status = "Referência selecionada: ${point.type} ${point.code}"
                                 newStep = 4
                             }, modifier = Modifier.fillMaxWidth()) { Text("${point.type} · ${point.code}") }
@@ -1368,6 +1512,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }
                 Button(onClick = {
                     occupation = Occupation(EntityId.new(), savedId ?: EntityId.new(), EntityId.new())
+                    occupationPersisted = false
                     receiverModel = ""
                     antennaModel = ""
                     receiverManufacturer = ""

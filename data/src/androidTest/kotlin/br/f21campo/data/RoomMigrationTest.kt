@@ -9,6 +9,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,6 +62,28 @@ class RoomMigrationTest {
             .build()
         assertEquals("Reabertura", second.projectDao().findById("p-reopen")?.name)
         second.close()
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun projectStationAndReferencePointKeepIdentityAndArchiveWithoutDelete() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "catalog-${System.currentTimeMillis()}.db"
+        val database = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        database.projectDao().upsert(ProjectEntity("project-1", "LH Manaus", 10L, null))
+        database.stationDao().upsert(StationEntity("station-1", "RN 01", "Manaus", null, 11L, null))
+        database.referencePointDao().upsert(ReferencePointEntity("reference-1", "station-1", "RN", "RN-01", null, null))
+
+        assertEquals("project-1", database.projectDao().findActiveByName("lh manaus")?.id)
+        assertEquals("station-1", database.stationDao().findActiveByIdentity("RN 01", "Manaus")?.id)
+        assertEquals("reference-1", database.referencePointDao().findByStationTypeAndCode("station-1", "RN", "RN-01")?.id)
+
+        database.stationDao().archive("station-1", 20L)
+        assertNull(database.stationDao().findActiveByIdentity("RN 01", "Manaus"))
+        assertNotNull(database.stationDao().findById("station-1"))
+        database.close()
         context.deleteDatabase(name)
     }
 }
