@@ -326,8 +326,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     check(json.optString("format") == "f21-database-exchange") { "Formato de troca não reconhecido" }
                     check(json.optInt("formatVersion", -1) == 1) { "Versão de troca não suportada" }
                     val envelope = DatabaseExchangeJsonCodec.decodeCore(text)
-                    repository.importCoreExchange(envelope).getOrThrow()
-                    "Banco importado: ${envelope.stations.size} estação(ões), ${envelope.referencePoints.size} referência(s)"
+                    val summary = repository.importCoreExchange(envelope).getOrThrow()
+                    "Banco importado: ${summary.projects} projeto(s), ${summary.stations} estação(ões), ${summary.referencePoints} referência(s), ${summary.occupations} ocupação(ões), ${summary.heights} altura(s)"
                 }.onSuccess { status = it }
                     .onFailure { status = "Importação rejeitada: ${it.message ?: "arquivo inválido"}" }
             }

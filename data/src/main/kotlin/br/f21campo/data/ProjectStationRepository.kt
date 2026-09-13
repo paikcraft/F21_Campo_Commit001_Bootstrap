@@ -18,6 +18,17 @@ import br.f21campo.receiver.api.ReceiverConnectionProfile
 import br.f21campo.receiver.api.ReceiverTransportType
 import java.time.Instant
 
+data class DatabaseImportSummary(
+    val projects: Int,
+    val stations: Int,
+    val referencePoints: Int,
+    val occupations: Int,
+    val heights: Int,
+    val events: Int,
+    val artifacts: Int,
+    val connectionProfiles: Int,
+)
+
 class ProjectStationRepository(
     private val projectDao: ProjectDao,
     private val stationDao: StationDao,
@@ -29,7 +40,7 @@ class ProjectStationRepository(
     private val connectionProfileDao: ReceiverConnectionProfileDao? = null,
     private val database: F21Database? = null,
 ) {
-    suspend fun importCoreExchange(envelope: DatabaseExchangeEnvelope): Result<Unit> {
+    suspend fun importCoreExchange(envelope: DatabaseExchangeEnvelope): Result<DatabaseImportSummary> {
         envelope.validate().getOrElse { return Result.failure(it) }
         val db = database ?: return Result.failure(IllegalStateException("Banco não configurado para importação"))
         return runCatching {
@@ -49,6 +60,7 @@ class ProjectStationRepository(
                 connectionProfileDao?.upsertAll(envelope.receiverConnectionProfiles)
                     ?: error("DAO de perfis de conexão não configurado")
             }
+            DatabaseImportSummary(envelope.projects.size, envelope.stations.size, envelope.referencePoints.size, envelope.occupations.size, envelope.heightMeasurements.size, envelope.events.size, envelope.artifacts.size, envelope.receiverConnectionProfiles.size)
         }
     }
     /** Creates a validated, structured snapshot for future JSON export. No files are written here. */
