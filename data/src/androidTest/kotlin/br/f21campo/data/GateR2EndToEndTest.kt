@@ -110,6 +110,53 @@ class GateR2EndToEndTest {
         context.deleteDatabase(name)
     }
 
+    @Test
+    fun activeOccupationSurvivesCloseAndReopenForContinueFlow() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "gate-r2-active-${System.currentTimeMillis()}.db"
+        val first = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        val firstRepository = repository(first)
+        val project = Project(EntityId("project-active"), "LH active", Instant.ofEpochMilli(11L))
+        val station = Station(EntityId("station-active"), "RN active", "Manaus", null, Instant.ofEpochMilli(12L))
+        val reference = ReferencePoint(EntityId("reference-active"), station.id, ReferencePointType.RN, "RN-ACTIVE")
+        firstRepository.save(project)
+        firstRepository.save(station)
+        firstRepository.save(reference)
+        var occupation = Occupation(EntityId("occupation-active"), project.id, station.id, reference.id, hasBeforeHeight = true, beforeHeightMeters = 1.2)
+        occupation = (ManualEquipment.attachSnapshot(
+            occupation,
+            Receiver(EntityId("receiver-active"), "Spectra", "S900", "rx-active", ProvenanceSource.OPERATOR, "fw-active"),
+            Antenna(EntityId("antenna-active"), "Spectra", "ASH801", "ant-active"),
+        ) as DomainResult.Success).value
+        occupation = (OccupationStateMachine.ready(occupation) as DomainResult.Success).value
+        occupation = (OccupationStateMachine.start(occupation, Instant.ofEpochMilli(20L)) as DomainResult.Success).value
+        firstRepository.save(occupation)
+        firstRepository.replaceHeights(
+            occupation.id,
+            HeightPhase.BEFORE,
+            listOf(HeightMeasurement(HeightPhase.BEFORE, 1.2, HeightType.VERTICAL, Instant.ofEpochMilli(19L), "unit=m", EntityId("height-active"))),
+        )
+        firstRepository.save(OccupationEvent(EntityId("event-active"), occupation.id, Instant.ofEpochMilli(21L), OccupationEventCategory.CONNECTION, EventSeverity.INFO, "canal preparado", ProvenanceSource.OPERATOR))
+        first.close()
+
+        val second = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        val recovered = repository(second).findIncompleteOccupations().single()
+        assertEquals(OccupationState.ACTIVE, recovered.state)
+        assertEquals(20L, recovered.confirmedStart?.toEpochMilli())
+        assertEquals(project.id, recovered.projectId)
+        assertEquals(station.id, recovered.stationId)
+        assertEquals("RN-ACTIVE", recovered.snapshots?.referencePoint?.code)
+        assertEquals("S900", recovered.snapshots?.receiver?.model)
+        assertEquals(1, repository(second).findEvents(recovered.id).size)
+        assertEquals(1, repository(second).findHeights(recovered.id).size)
+        second.close()
+        context.deleteDatabase(name)
+    }
+
     private fun repository(database: F21Database) = ProjectStationRepository(
         database.projectDao(),
         database.stationDao(),

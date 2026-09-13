@@ -4,7 +4,7 @@ Data da auditoria: 2026-09-13
 
 ## Identificação
 
-- HEAD code: `76fae44126b97879eb3df877434278fe71335701`
+- HEAD code: `76fae44126b97879eb3df877434278fe71335701` (R2.8 test extension in progress)
 - Branch: `main`
 - VersionName: `0.1.14-dev`
 - VersionCode: `15`
@@ -38,7 +38,7 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationSnapshot, 
 
 - Unitários: domínio, alturas, estados, readiness, eventos/auditoria, timer, RAW, transporte TCP e adapter manual.
 - Instrumentados: bootstrap, migrations/reopen, catálogos/snapshots de equipamento, RAW, auditoria/eventos e `GateR2EndToEndTest`.
-- Último CI: unitários, instrumentados e `assembleOperationalDebug` PASS.
+- Último CI: unitários, instrumentados e `assembleOperationalDebug` PASS; novo teste ACTIVE/reabertura aguarda Actions.
 - Teste físico após a versão 0.1.12: ainda não registrado.
 
 ## Funcionalidades PASS no código/testes
@@ -56,7 +56,7 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationSnapshot, 
 ## Funcionalidades parciais
 
 - Snapshots históricos: PASS no bloco R2.6; `occupation_snapshots` preserva Station, ReferencePoint, Receiver e Antenna, com backfill V18→V19 e reidratação pelo snapshot.
-- DRAFT inicial agora é persistido com Project/Station nulos, sem IDs fictícios; a prova automatizada de process death/ACTIVE ainda está pendente.
+- DRAFT inicial agora é persistido com Project/Station nulos, sem IDs fictícios; o teste de ACTIVE/reabertura foi adicionado, mas process death físico ainda não foi observado.
 - Auditoria registra principalmente ações da Occupation; edição de cadastros Station/Reference fora da ocupação não tem trilha completa.
 - Exportação/importação JSON preserva o núcleo atual, mas ainda não inclui snapshots, catálogos e auditoria.
 - O ramo legado de fallback da `MainActivity` continua no código.
@@ -76,8 +76,8 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationSnapshot, 
 
 ## Marco atual
 
-**B — GATE R2 MANUAL EM CONSTRUÇÃO.** R2.6 passou em testes, migration e CI; R2.8 já persiste DRAFT incompleto, mas ainda falta a prova completa de recuperação ACTIVE e o reteste físico.
+**B — GATE R2 MANUAL EM CONSTRUÇÃO.** R2.6 passou em testes, migration e CI; R2.8 agora possui teste automatizado de DRAFT e ACTIVE após reabertura. O reteste físico ainda é obrigatório.
 
 ## Primeiro bloco incompleto
 
-**R2.8 — AUTOSAVE E REIDRATAÇÃO COMPLETA (EM ANDAMENTO).** DRAFT inicial sem IDs fictícios já é persistido e reaberto; falta automatizar a simulação de fechamento/process death em ACTIVE e verificar a reconstrução integral da tela/evidências.
+**R2.8 — AUTOSAVE E REIDRATAÇÃO COMPLETA.** DRAFT inicial sem IDs fictícios e ACTIVE com timestamps, snapshots, alturas e eventos são reabertos por teste instrumentado. Falta apenas a confirmação física do comportamento da Activity após remoção dos recentes/process death.
