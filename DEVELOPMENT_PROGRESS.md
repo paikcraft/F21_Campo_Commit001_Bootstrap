@@ -64,3 +64,16 @@
 - ALTERAÇÕES: DRAFT só é autosalvo após Projeto/Estação reais; mudanças da ocupação são persistidas pelo estado; `Continuar rastreio` reidrata projeto, estação, município, referência, equipamento manual, duração, estado, timestamps, alturas/unidades, eventos, RAW e SHA-256; teste de fechamento/reabertura verifica ocupação e evidências
 - LIMITAÇÕES: snapshots históricos ainda usam os campos de equipamento persistidos na ocupação e IDs reconstruídos no mapper; snapshots dedicados pertencem ao Bloco 6; confirmação física de fechar/remover dos recentes permanece pendente
 - PRÓXIMO BLOCO: Bloco 5 — UI operacional com cara de campo
+
+## 2026-09-13 — Bloco 5
+
+- BLOCO: UI operacional com cara de campo
+- STATUS: PASS (fluxo/rotas e Actions; avaliação visual física ainda pendente)
+- COMMIT: `88ef022`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`
+- GITHUB ACTIONS: run `34764684349` PASS, SHA `88ef022` conferido; unitários, instrumentados e build operationalDebug concluídos
+- ROOM VERSION: 15
+- MIGRATION: não alterada
+- ALTERAÇÕES: `ACTIVE` e `FINALIZATION` passaram a ser rotas operacionais próprias; READY/INICIAR conduz ao rastreio ativo; PARAR conduz à finalização; reabertura restaura a rota conforme o estado; home recebeu cabeçalho operacional consistente com a inspiração C32; estado e dados permanecem persistidos ao navegar para o início
+- LIMITAÇÕES: identidade visual ainda é uma evolução funcional, não uma cópia definitiva do C32; teste físico de navegação e teclado continua pendente
+- PRÓXIMO BLOCO: Bloco 6 — Receiver/Antenna manuais e snapshots
