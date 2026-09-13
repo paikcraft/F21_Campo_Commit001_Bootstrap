@@ -116,3 +116,16 @@
 - ALTERAÇÕES: eventos de campo agora selecionam categoria e severidade; tela ACTIVE mostra linha do tempo de eventos e auditoria; transições READY/ACTIVE/STOPPED/COLLECTED/VALIDATED, equipamento, alturas e RAW geram registros de auditoria; fechamento/reabertura recupera auditoria por ocupação
 - LIMITAÇÕES: o teste físico da tela ACTIVE e do comportamento de rolagem ainda depende do aparelho; auditoria de edição de cadastros fora da ocupação pode ser ampliada; Spectra continua sem protocolo automático
 - PRÓXIMO BLOCO: Bloco 9 — RAW/SHA-256 e finalização com inventário visual e resumo operacional
+
+## 2026-09-13 — Bloco 9
+
+- BLOCO: RAW, SHA-256 e finalização com inventário visual
+- STATUS: PASS (código, testes unitários/instrumentados e Actions; teste físico ainda não executado)
+- COMMIT: `d1051cf`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`/Gradle global
+- GITHUB ACTIONS: run `34768687672` PASS para `d1051cf`; SHA conferido; testes de deduplicação/integridade e build operationalDebug concluídos
+- ROOM VERSION: 18
+- MIGRATION: nenhuma alteração de schema neste bloco; artifacts existentes preservados
+- ALTERAÇÕES: associação RAW deduplica por SHA-256 dentro da ocupação; inventário mostra nome, tamanho e hash completo; verificação pós-cópia recalcula tamanho/hash; teste de arquivo corrompido; auditoria registra verificação válida ou inválida
+- LIMITAÇÕES: a importação continua sendo seleção de arquivo já presente/acessível ao Android, não download remoto da antena; teste físico do seletor e persistência após reinstalação ainda pendente
+- PRÓXIMO BLOCO: Bloco 10 — teste automatizado end-to-end do Gate R2 e pacote operacional para teste físico
