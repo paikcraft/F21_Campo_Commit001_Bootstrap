@@ -90,3 +90,16 @@
 - ALTERAÇÕES: catálogo manual separado para Receiver e Antenna; criar/listar/editar/arquivar; seleção no fluxo de novo rastreio; origem continua `OPERATOR`; ocupação copia fabricante/modelo/serial/firmware para seu snapshot persistido; teste confirma que editar/arquivar catálogo não reescreve ocupação histórica; versão do APK incrementada para `0.1.6-dev`/versionCode 7
 - LIMITAÇÕES: compatibilidade Spectra continua fora deste marco; nenhum IP/porta/UUID/protocolo é presumido; teste físico do catálogo e do fluxo completo ainda depende do aparelho; exportação/importação de catálogos será tratada no bloco de intercâmbio estruturado
 - PRÓXIMO BLOCO: Bloco 7 — alturas 1..N definitivas e refinamento visual operacional do fluxo BEFORE/AFTER
+
+## 2026-09-13 — Bloco 7
+
+- BLOCO: alturas 1..N definitivas e refinamento visual BEFORE/AFTER
+- STATUS: PASS (código, testes instrumentados e Actions; teste físico ainda não executado)
+- COMMIT: `81194a6`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`/Gradle global
+- GITHUB ACTIONS: run `34766912892` PASS para `81194a6`; SHA conferido; unitários, instrumentados e build operationalDebug concluídos
+- ROOM VERSION: 17
+- MIGRATION: nenhuma alteração de schema; IDs das medições já existentes foram preservados
+- ALTERAÇÕES: cada `HeightMeasurement` mantém ID; registro BEFORE/AFTER substitui somente a fase editada e elimina duplicação; UI permite 1..N leituras, unidade explícita e tipo VERTICAL/SLANT/OTHER; médias/amplitudes/delta continuam derivados; cartões de altura receberam hierarquia visual operacional inspirada no C32
+- LIMITAÇÕES: teste físico de teclado, rolagem e visual ainda pendente; as regras de tolerância continuam deliberadamente ausentes; a tela legada de compatibilidade ainda mantém edição longa fora do wizard
+- PRÓXIMO BLOCO: Bloco 8 — eventos/timeline/auditoria persistente com refinamento visual da tela ACTIVE
