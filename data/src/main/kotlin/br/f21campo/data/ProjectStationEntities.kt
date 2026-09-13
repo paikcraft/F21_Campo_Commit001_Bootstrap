@@ -35,8 +35,8 @@ data class ReferencePointEntity(
 @Entity(tableName = "occupations")
 data class OccupationEntity(
     @PrimaryKey val id: String,
-    val projectId: String,
-    val stationId: String,
+    val projectId: String?,
+    val stationId: String?,
     val referencePointId: String?,
     val plannedDurationSeconds: Long?,
     val state: String,

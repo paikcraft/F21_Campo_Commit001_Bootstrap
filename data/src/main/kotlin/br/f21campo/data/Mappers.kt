@@ -26,7 +26,7 @@ fun ProjectEntity.toDomain() = Project(EntityId(id), name, Instant.ofEpochMilli(
 fun Station.toEntity() = StationEntity(id.value, name, locality, municipality, createdAt.toEpochMilli(), archivedAt?.toEpochMilli())
 fun StationEntity.toDomain() = Station(EntityId(id), name, locality, municipality, Instant.ofEpochMilli(createdAtEpochMillis), archivedAtEpochMillis?.let(Instant::ofEpochMilli))
 fun ReferencePointEntity.toDomain() = ReferencePoint(EntityId(id), EntityId(stationId), ReferencePointType.valueOf(type), code, description, observation)
-fun Occupation.toEntity() = OccupationEntity(id.value, projectId.value, stationId.value, referencePointId?.value, plannedDurationSeconds, state.name, plannedStart?.toEpochMilli(), confirmedStart?.toEpochMilli(), confirmedStop?.toEpochMilli(), equipment?.receiver?.model, equipment?.antenna?.model, equipment?.receiver?.manufacturer, equipment?.antenna?.manufacturer, equipment?.receiver?.serialNumber, equipment?.antenna?.serialNumber, equipment?.receiver?.firmware, hasBeforeHeight, beforeHeightMeters)
+fun Occupation.toEntity() = OccupationEntity(id.value, projectId?.value, stationId?.value, referencePointId?.value, plannedDurationSeconds, state.name, plannedStart?.toEpochMilli(), confirmedStart?.toEpochMilli(), confirmedStop?.toEpochMilli(), equipment?.receiver?.model, equipment?.antenna?.model, equipment?.receiver?.manufacturer, equipment?.antenna?.manufacturer, equipment?.receiver?.serialNumber, equipment?.antenna?.serialNumber, equipment?.receiver?.firmware, hasBeforeHeight, beforeHeightMeters)
 fun OccupationEntity.toDomain(snapshot: OccupationSnapshotEntity? = null): Occupation {
     val flattenedEquipment = if (receiverModel != null || antennaModel != null || receiverSerial != null || antennaSerial != null || receiverManufacturer != null || antennaManufacturer != null || receiverFirmware != null) {
         EquipmentSnapshot(
@@ -59,8 +59,8 @@ fun OccupationEntity.toDomain(snapshot: OccupationSnapshotEntity? = null): Occup
     }
     return Occupation(
         id = EntityId(id),
-        projectId = EntityId(projectId),
-        stationId = EntityId(stationId),
+        projectId = projectId?.let(::EntityId),
+        stationId = stationId?.let(::EntityId),
         referencePointId = referencePointId?.let(::EntityId),
         plannedDurationSeconds = plannedDurationSeconds,
         plannedStart = plannedStartEpochMillis?.let(Instant::ofEpochMilli),

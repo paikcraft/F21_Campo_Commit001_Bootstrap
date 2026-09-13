@@ -174,7 +174,7 @@ class ProjectStationRepository(
     }
 
     private suspend fun captureSnapshot(occupation: Occupation): OccupationSnapshots? {
-        val station = stationDao.findById(occupation.stationId.value)?.toDomain()
+        val station = occupation.stationId?.let { stationDao.findById(it.value)?.toDomain() }
         val reference = occupation.referencePointId?.let { referencePointDao?.findById(it.value)?.toDomain() }
         val equipment = occupation.equipment
         if (station == null && reference == null && equipment == null) return null

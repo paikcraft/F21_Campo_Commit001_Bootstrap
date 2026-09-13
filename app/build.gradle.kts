@@ -11,8 +11,8 @@ android {
         applicationId = "br.f21campo"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "0.1.13-dev"
+        versionCode = 15
+        versionName = "0.1.14-dev"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

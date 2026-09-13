@@ -43,7 +43,7 @@ class DatabaseExchangeTest {
 
     @Test
     fun migrationChainIsContiguousFromOneToCurrent() {
-        assertEquals((1..18).toList(), Migrations.ALL.map { it.startVersion })
-        assertEquals((2..19).toList(), Migrations.ALL.map { it.endVersion })
+        assertEquals((1..19).toList(), Migrations.ALL.map { it.startVersion })
+        assertEquals((2..20).toList(), Migrations.ALL.map { it.endVersion })
     }
 }

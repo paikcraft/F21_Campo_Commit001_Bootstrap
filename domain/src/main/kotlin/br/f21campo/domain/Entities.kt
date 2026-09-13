@@ -44,8 +44,9 @@ data class EquipmentSnapshot(
 
 data class Occupation(
     val id: EntityId,
-    val projectId: EntityId,
-    val stationId: EntityId,
+    /** Null while the persisted DRAFT is still in the project/station steps. */
+    val projectId: EntityId? = null,
+    val stationId: EntityId? = null,
     val referencePointId: EntityId? = null,
     val plannedDurationSeconds: Long? = null,
     val plannedStart: Instant? = null,

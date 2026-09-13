@@ -136,6 +136,16 @@ object Migrations {
         }
     }
 
+    /** Allow an incomplete DRAFT to be persisted before project/station selection. */
+    val V19_TO_V20 = object : Migration(19, 20) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE occupations_new (id TEXT NOT NULL PRIMARY KEY, projectId TEXT, stationId TEXT, referencePointId TEXT, plannedDurationSeconds INTEGER, state TEXT NOT NULL, plannedStartEpochMillis INTEGER, confirmedStartEpochMillis INTEGER, confirmedStopEpochMillis INTEGER, receiverModel TEXT, antennaModel TEXT, receiverManufacturer TEXT, antennaManufacturer TEXT, receiverSerial TEXT, antennaSerial TEXT, receiverFirmware TEXT, hasBeforeHeight INTEGER NOT NULL, beforeHeightMeters REAL)")
+            database.execSQL("INSERT INTO occupations_new (id, projectId, stationId, referencePointId, plannedDurationSeconds, state, plannedStartEpochMillis, confirmedStartEpochMillis, confirmedStopEpochMillis, receiverModel, antennaModel, receiverManufacturer, antennaManufacturer, receiverSerial, antennaSerial, receiverFirmware, hasBeforeHeight, beforeHeightMeters) SELECT id, projectId, stationId, referencePointId, plannedDurationSeconds, state, plannedStartEpochMillis, confirmedStartEpochMillis, confirmedStopEpochMillis, receiverModel, antennaModel, receiverManufacturer, antennaManufacturer, receiverSerial, antennaSerial, receiverFirmware, hasBeforeHeight, beforeHeightMeters FROM occupations")
+            database.execSQL("DROP TABLE occupations")
+            database.execSQL("ALTER TABLE occupations_new RENAME TO occupations")
+        }
+    }
+
     val ALL = arrayOf(
         V1_TO_V2,
         V2_TO_V3,
@@ -155,5 +165,6 @@ object Migrations {
         V16_TO_V17,
         V17_TO_V18,
         V18_TO_V19,
+        V19_TO_V20,
     )
 }

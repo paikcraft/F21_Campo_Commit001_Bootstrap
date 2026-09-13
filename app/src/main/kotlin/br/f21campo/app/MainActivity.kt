@@ -327,7 +327,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var municipality by remember { mutableStateOf("") }
     var savedId by remember { mutableStateOf<EntityId?>(null) }
     var status by remember { mutableStateOf("Banco de Estações") }
-    var occupation by remember { mutableStateOf(Occupation(EntityId.new(), EntityId.new(), EntityId.new())) }
+    var occupation by remember { mutableStateOf(Occupation(EntityId.new())) }
     var occupationPersisted by remember { mutableStateOf(false) }
     var receiverModel by remember { mutableStateOf("") }
     var antennaModel by remember { mutableStateOf("") }
@@ -541,8 +541,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     suspend fun restorePendingOccupation(pending: Occupation) {
         val heights = repository.findHeights(pending.id)
         val historical = repository.findOccupationSnapshots(pending.id)
-        val recoveredProject = repository.findProject(pending.projectId)
-        val recoveredStation = repository.findStation(pending.stationId)
+        val recoveredProject = pending.projectId?.let { repository.findProject(it) }
+        val recoveredStation = pending.stationId?.let { repository.findStation(it) }
         val recoveredReference = pending.referencePointId?.let { repository.findReferencePoint(it) }
         occupation = pending.copy(snapshots = historical ?: pending.snapshots)
         occupationPersisted = true
@@ -630,8 +630,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
         locality = ""
         municipality = ""
         savedId = null
-        occupation = Occupation(EntityId.new(), EntityId.new(), EntityId.new())
-        occupationPersisted = false
+        val newDraft = Occupation(EntityId.new())
+        occupation = newDraft
+        occupationPersisted = true
+        scope.launch { repository.save(newDraft) }
         projectName = ""
         projectEditorId = null
         projectEditorCreatedAt = null
@@ -702,7 +704,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         if (route == "HOME") {
             val pending = repository.findIncompleteOccupations().firstOrNull()
             pendingOccupationSummary = pending?.let {
-                val station = repository.findStation(it.stationId)
+                val station = it.stationId?.let { stationId -> repository.findStation(stationId) }
                 val reference = it.referencePointId?.let { id -> repository.findReferencePoint(id) }
                 listOfNotNull(
                     station?.name,
@@ -947,8 +949,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         scope.launch {
                                             val current = repository.findOccupation(item.id) ?: return@launch
                                             reviewedOccupation = current
-                                            reviewedProjectName = repository.findProject(current.projectId)?.name.orEmpty()
-                                            reviewedStationName = repository.findStation(current.stationId)?.name.orEmpty()
+                                            reviewedProjectName = current.projectId?.let { repository.findProject(it)?.name }.orEmpty()
+                                            reviewedStationName = current.stationId?.let { repository.findStation(it)?.name }.orEmpty()
                                             reviewedReference = current.referencePointId?.let { repository.findReferencePoint(it) }
                                             reviewedHeights = repository.findHeights(current.id)
                                             reviewedEvents = repository.findEvents(current.id)
@@ -1985,8 +1987,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     if (reached) Text("⚠ ALERTA: tempo selecionado já foi cumprido")
                 }
                 Button(onClick = {
-                    occupation = Occupation(EntityId.new(), savedId ?: EntityId.new(), EntityId.new())
-                    occupationPersisted = false
+                    val newDraft = Occupation(EntityId.new(), projectId = occupation.projectId, stationId = savedId)
+                    occupation = newDraft
+                    occupationPersisted = true
+                    scope.launch { repository.save(newDraft) }
                     receiverModel = ""
                     antennaModel = ""
                     receiverManufacturer = ""

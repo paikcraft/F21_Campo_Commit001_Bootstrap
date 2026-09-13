@@ -39,7 +39,7 @@ class RoomMigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate("migration-test", 19, true, *Migrations.ALL)
+        val migrated = helper.runMigrationsAndValidate("migration-test", 20, true, *Migrations.ALL)
         migrated.query("SELECT name FROM projects WHERE id = 'p1'").use { cursor ->
             check(cursor.moveToFirst())
             assertEquals("Comissão 1", cursor.getString(0))
@@ -83,7 +83,7 @@ class RoomMigrationTest {
             execSQL("INSERT INTO occupations (id, projectId, stationId, referencePointId, plannedDurationSeconds, state, plannedStartEpochMillis, confirmedStartEpochMillis, confirmedStopEpochMillis, receiverModel, antennaModel, receiverManufacturer, antennaManufacturer, receiverSerial, antennaSerial, receiverFirmware, hasBeforeHeight, beforeHeightMeters) VALUES ('o-old', 'p-old', 's-old', 'r-old', 1200, 'STOPPED', 3, 4, 5, 'S900', 'ASH801', 'Spectra', 'Spectra', 'rx-old', 'ant-old', 'fw-old', 1, 1.234)")
             close()
         }
-        val migrated = helper.runMigrationsAndValidate("snapshot-migration", 19, true, Migrations.V18_TO_V19)
+        val migrated = helper.runMigrationsAndValidate("snapshot-migration", 20, true, Migrations.V18_TO_V19, Migrations.V19_TO_V20)
         migrated.query("SELECT stationName, referenceCode, receiverModel, antennaModel FROM occupation_snapshots WHERE occupationId = 'o-old'").use { cursor ->
             check(cursor.moveToFirst())
             assertEquals("Estação antiga", cursor.getString(0))
@@ -92,6 +92,47 @@ class RoomMigrationTest {
             assertEquals("ASH801", cursor.getString(3))
         }
         migrated.close()
+    }
+
+    @Test
+    fun draftOccupationCanBePersistedBeforeProjectAndStationAreSelected() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "draft-before-selection-${System.currentTimeMillis()}.db"
+        val first = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        first.occupationDao().upsert(
+            OccupationEntity(
+                id = "draft-early",
+                projectId = null,
+                stationId = null,
+                referencePointId = null,
+                plannedDurationSeconds = null,
+                state = "DRAFT",
+                plannedStartEpochMillis = null,
+                confirmedStartEpochMillis = null,
+                confirmedStopEpochMillis = null,
+                receiverModel = null,
+                antennaModel = null,
+                receiverManufacturer = null,
+                antennaManufacturer = null,
+                receiverSerial = null,
+                antennaSerial = null,
+                receiverFirmware = null,
+                hasBeforeHeight = false,
+                beforeHeightMeters = null,
+            ),
+        )
+        first.close()
+        val second = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        val draft = second.occupationDao().findById("draft-early")
+        assertEquals("DRAFT", draft?.state)
+        assertNull(draft?.projectId)
+        assertNull(draft?.stationId)
+        second.close()
+        context.deleteDatabase(name)
     }
 
     @Test
