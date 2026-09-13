@@ -218,6 +218,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var connectionPort by remember { mutableStateOf("") }
     var bluetoothName by remember { mutableStateOf("") }
     var bluetoothMac by remember { mutableStateOf("") }
+    var selectedBluetoothMac by remember { mutableStateOf("") }
     var pairedBluetoothDevices by remember { mutableStateOf(emptyList<Pair<String, String>>()) }
     val discoveredBluetoothDevices = remember { mutableStateListOf<Pair<String, String>>() }
     var bluetoothDiscoveryStatus by remember { mutableStateOf("Ainda não consultado") }
@@ -720,10 +721,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     OutlinedButton(onClick = {
                                         bluetoothName = deviceName
                                         bluetoothMac = mac
+                                        selectedBluetoothMac = mac
                                         inspectBluetoothServices(mac)
                                         connectionStatus = "Dispositivo selecionado; transporte e protocolo ainda não homologados."
                                     }, modifier = Modifier.fillMaxWidth()) {
-                                        Text("${deviceName.ifBlank { "Sem nome" }} · $mac")
+                                        Text("${if (selectedBluetoothMac == mac) "✓ " else ""}${deviceName.ifBlank { "Sem nome" }} · $mac")
                                     }
                                 }
                                 if (discoveredBluetoothDevices.isNotEmpty()) {
@@ -739,10 +741,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         OutlinedButton(onClick = {
                                             bluetoothName = deviceName
                                             bluetoothMac = mac
+                                            selectedBluetoothMac = mac
                                             inspectBluetoothServices(mac)
                                             connectionStatus = "Dispositivo selecionado. Pareie-o no Android antes de tentar a conexão de bancada."
                                         }, modifier = Modifier.fillMaxWidth()) {
-                                            Text("${deviceName.ifBlank { "Sem nome" }} · $mac")
+                                            Text("${if (selectedBluetoothMac == mac) "✓ " else ""}${deviceName.ifBlank { "Sem nome" }} · $mac")
                                         }
                                     }
                                 } else if (bluetoothDiscoveryStatus.contains("concluída", ignoreCase = true)) {
