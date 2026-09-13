@@ -445,7 +445,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
             else -> 6
         }
         status = "Rastreio recuperado: ${pending.state}"
-        route = "NEW"
+        route = when (pending.state) {
+            OccupationState.ACTIVE -> "ACTIVE"
+            OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED -> "FINALIZATION"
+            else -> "NEW"
+        }
         newStep = firstMissingStep
         showHome = false
     }
@@ -549,6 +553,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                if (route == "HOME") {
+                    FieldTopBar(
+                        title = "F-21 Campo",
+                        subtitle = "${BuildConfig.BUILD_MODE} · operação offline",
+                        showBack = false,
+                        onBack = {},
+                        fieldBlueDark = fieldBlueDark,
+                    )
+                }
                 if (route != "HOME") {
                     val routeTitle = when (route) {
                         "NEW" -> "Novo rastreio"
@@ -558,6 +571,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         "SETTINGS" -> "Configurações"
                         "ABOUT" -> "Sobre"
                         "SUMMARY" -> "Resumo do rastreio"
+                        "ACTIVE" -> "Rastreio ativo"
+                        "FINALIZATION" -> "Finalização"
                         else -> "F-21 Campo"
                     }
                     FieldTopBar(
@@ -1320,7 +1335,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }, modifier = Modifier.fillMaxWidth()) { Text("READY") }
                     Button(enabled = occupation.state == OccupationState.READY, onClick = {
                         val result = OccupationStateMachine.start(occupation, Instant.now())
-                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; status = "Rastreio iniciado" }
+                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; route = "ACTIVE"; status = "Rastreio iniciado" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.READY) {
@@ -1338,10 +1353,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     Button(onClick = {
                         val result = OccupationStateMachine.start(occupation, Instant.now())
-                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; status = "Rastreio iniciado" }
+                        if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; route = "ACTIVE"; status = "Rastreio iniciado" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("INICIAR RASTREIO") }
                     Text(status)
-                } else if (route == "NEW" && occupation.state == OccupationState.ACTIVE) {
+                } else if (route == "ACTIVE" && occupation.state == OccupationState.ACTIVE) {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1388,10 +1403,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     Button(onClick = {
                         val result = OccupationStateMachine.stop(occupation, Instant.now())
-                        if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — finalização" }
+                        if (result is DomainResult.Success) { occupation = result.value; route = "FINALIZATION"; status = "Rastreio parado — finalização" }
                     }, modifier = Modifier.fillMaxWidth()) { Text("PARAR RASTREIO") }
                     Text(status)
-                } else if (occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
+                } else if (route == "FINALIZATION" && occupation.state in setOf(OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED)) {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("FINALIZAÇÃO", color = Color.White, style = MaterialTheme.typography.headlineSmall)
@@ -1460,7 +1475,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Antena: ${occupation.equipment?.antenna?.model ?: antennaModel.ifBlank { "manual" }}")
                     OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
                     Button(onClick = { if (event.isNotBlank()) scope.launch { repository.save(OccupationEvent(EntityId.new(), occupation.id, Instant.now(), OccupationEventCategory.NOTE, EventSeverity.INFO, event.trim())); event = ""; status = "Evento registrado" } }) { Text("REGISTRAR EVENTO") }
-                    Button(onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — finalização" } }) { Text("PARAR RASTREIO") }
+                    Button(onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; route = "FINALIZATION"; status = "Rastreio parado — finalização" } }) { Text("PARAR RASTREIO") }
                 } else {
                 Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
                 Text("Versão ${BuildConfig.VERSION_NAME}")
@@ -1554,8 +1569,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     if (occupation.referencePointId == null) Button(onClick = { newStep = 3 }) { Text("IR PARA REFERÊNCIA") }
                     if (!occupation.hasBeforeHeight) Button(onClick = { newStep = 5 }) { Text("IR PARA ALTURA BEFORE") }
                 }
-                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; status = "Rastreio iniciado" } }) { Text("INICIAR") }
-                Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
+                Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; route = "ACTIVE"; status = "Rastreio iniciado" } }) { Text("INICIAR") }
+                Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; route = "FINALIZATION"; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
                 Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
                     val result = OccupationStateMachine.collectWithEvidence(occupation, hasRawEvidence = rawImported, hasAfterHeight = afterRegistered)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Coleta finalizada — pronta para resumo" }
