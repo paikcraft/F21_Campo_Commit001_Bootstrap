@@ -668,7 +668,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         }, modifier = Modifier.fillMaxWidth()) { Text("ARQUIVAR PROJETO") }
                     }
                     Text("Projetos salvos neste aparelho", style = MaterialTheme.typography.titleMedium)
-                    val visibleProjects = projects.filter { projectSearch.isBlank() || project.name.contains(projectSearch.trim(), ignoreCase = true) }
+                    val visibleProjects = projects.filter { item -> projectSearch.isBlank() || item.name.contains(projectSearch.trim(), ignoreCase = true) }
                     if (visibleProjects.isEmpty()) Text(if (projects.isEmpty()) "Nenhum projeto ativo salvo ainda" else "Nenhum projeto corresponde à pesquisa")
                     visibleProjects.forEach { project ->
                         OutlinedButton(onClick = {
@@ -716,7 +716,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         }, modifier = Modifier.fillMaxWidth()) { Text("ARQUIVAR ESTAÇÃO") }
                     }
                     Text("Estações salvas neste aparelho", style = MaterialTheme.typography.titleMedium)
-                    val visibleStations = stations.filter { stationSearch.isBlank() || listOfNotNull(station.name, station.locality, station.municipality).any { value -> value.contains(stationSearch.trim(), ignoreCase = true) } }
+                    val visibleStations = stations.filter { item -> stationSearch.isBlank() || listOfNotNull(item.name, item.locality, item.municipality).any { value -> value.contains(stationSearch.trim(), ignoreCase = true) } }
                     if (visibleStations.isEmpty()) Text(if (stations.isEmpty()) "Nenhuma estação ativa salva ainda" else "Nenhuma estação corresponde à pesquisa")
                     visibleStations.forEach { station ->
                         OutlinedButton(onClick = {
