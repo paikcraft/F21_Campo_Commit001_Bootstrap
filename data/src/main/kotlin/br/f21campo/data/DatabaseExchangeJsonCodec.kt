@@ -5,6 +5,20 @@ import org.json.JSONObject
 
 /** Android JSON codec for the versioned exchange envelope. */
 object DatabaseExchangeJsonCodec {
+    fun decodeCore(jsonText: String): DatabaseExchangeEnvelope {
+        val root = JSONObject(jsonText)
+        val envelope = DatabaseExchangeEnvelope(
+            format = root.optString("format"),
+            formatVersion = root.optInt("formatVersion", -1),
+            exportedAtEpochMillis = root.optLong("exportedAtEpochMillis", 0L),
+            projects = root.optJSONArray("projects").toObjects { item -> ProjectEntity(item.getString("id"), item.getString("name"), item.getLong("createdAtEpochMillis"), item.optNullableLong("archivedAtEpochMillis")) },
+            stations = root.optJSONArray("stations").toObjects { item -> StationEntity(item.getString("id"), item.getString("name"), item.optNullableString("locality"), item.optNullableString("municipality"), item.getLong("createdAtEpochMillis"), item.optNullableLong("archivedAtEpochMillis")) },
+            referencePoints = root.optJSONArray("referencePoints").toObjects { item -> ReferencePointEntity(item.getString("id"), item.getString("stationId"), item.getString("type"), item.getString("code"), item.optNullableString("description"), item.optNullableString("observation")) },
+        )
+        envelope.validate().getOrThrow()
+        return envelope
+    }
+
     fun encode(envelope: DatabaseExchangeEnvelope): String {
         envelope.validate().getOrThrow()
         return JSONObject().apply {
@@ -23,4 +37,12 @@ object DatabaseExchangeJsonCodec {
     }
 
     private fun JSONObject.putNullable(key: String, value: Any?): JSONObject = put(key, value ?: JSONObject.NULL)
+
+    private inline fun <T> JSONArray?.toObjects(transform: (JSONObject) -> T): List<T> = buildList {
+        if (this@toObjects == null) return@buildList
+        for (index in 0 until length()) add(transform(getJSONObject(index)))
+    }
+
+    private fun JSONObject.optNullableString(key: String): String? = if (isNull(key)) null else optString(key).ifBlank { null }
+    private fun JSONObject.optNullableLong(key: String): Long? = if (isNull(key)) null else optLong(key)
 }
