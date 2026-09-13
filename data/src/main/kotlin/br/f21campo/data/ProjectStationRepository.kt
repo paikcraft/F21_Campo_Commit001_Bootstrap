@@ -38,6 +38,8 @@ class ProjectStationRepository(
                 stationDao.upsertAll(envelope.stations)
                 referencePointDao?.upsertAll(envelope.referencePoints)
                     ?: error("DAO de referências não configurado")
+                occupationDao?.upsertAll(envelope.occupations)
+                    ?: error("DAO de ocupações não configurado")
             }
         }
     }

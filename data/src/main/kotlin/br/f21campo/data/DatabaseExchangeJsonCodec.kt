@@ -14,6 +14,7 @@ object DatabaseExchangeJsonCodec {
             projects = root.optJSONArray("projects").toObjects { item -> ProjectEntity(item.getString("id"), item.getString("name"), item.getLong("createdAtEpochMillis"), item.optNullableLong("archivedAtEpochMillis")) },
             stations = root.optJSONArray("stations").toObjects { item -> StationEntity(item.getString("id"), item.getString("name"), item.optNullableString("locality"), item.optNullableString("municipality"), item.getLong("createdAtEpochMillis"), item.optNullableLong("archivedAtEpochMillis")) },
             referencePoints = root.optJSONArray("referencePoints").toObjects { item -> ReferencePointEntity(item.getString("id"), item.getString("stationId"), item.getString("type"), item.getString("code"), item.optNullableString("description"), item.optNullableString("observation")) },
+            occupations = root.optJSONArray("occupations").toObjects { item -> OccupationEntity(item.getString("id"), item.getString("projectId"), item.getString("stationId"), item.optNullableString("referencePointId"), item.optNullableLong("plannedDurationSeconds"), item.getString("state"), item.optNullableLong("plannedStartEpochMillis"), item.optNullableLong("confirmedStartEpochMillis"), item.optNullableLong("confirmedStopEpochMillis"), item.optNullableString("receiverModel"), item.optNullableString("antennaModel"), null, null, null, null, item.optBoolean("hasBeforeHeight", false), item.optNullableDouble("beforeHeightMeters")) },
         )
         envelope.validate().getOrThrow()
         return envelope
@@ -45,4 +46,5 @@ object DatabaseExchangeJsonCodec {
 
     private fun JSONObject.optNullableString(key: String): String? = if (isNull(key)) null else optString(key).ifBlank { null }
     private fun JSONObject.optNullableLong(key: String): Long? = if (isNull(key)) null else optLong(key)
+    private fun JSONObject.optNullableDouble(key: String): Double? = if (isNull(key)) null else optDouble(key)
 }
