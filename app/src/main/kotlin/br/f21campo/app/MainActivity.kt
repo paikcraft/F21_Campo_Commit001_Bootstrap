@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Build
 import android.provider.Settings
 import org.json.JSONObject
@@ -29,7 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextField as MaterialOutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Card
@@ -99,7 +100,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.focus.onFocusEvent
 import kotlinx.coroutines.withContext
 
 private fun heightToMeters(value: Double, unit: String?): Double? = when (unit) {
@@ -127,6 +131,61 @@ private fun heightUnitHint(readings: List<String>, selectedUnit: String?): Strin
         digitsOnly && first.length == 3 -> "Leitura com 3 dígitos: confirme a unidade ou informe onde está a vírgula."
         else -> "Selecione a unidade da altura antes de registrar."
     }
+}
+
+private fun bluetoothRuntimePermissions(): Array<String> =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN)
+    } else {
+        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+private fun hasBluetoothRuntimePermissions(context: Context): Boolean =
+    bluetoothRuntimePermissions().all {
+        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+private fun isLocationEnabledForBluetoothDiscovery(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.R) return true
+    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return true
+    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        locationManager.isLocationEnabled
+    } else {
+        @Suppress("DEPRECATION")
+        locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+            @Suppress("DEPRECATION")
+            locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }
+}
+
+/**
+ * Keeps the focused field above the IME. This is deliberately applied to every
+ * text field because field forms can be longer than the visible viewport.
+ */
+@Composable
+private fun OutlinedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val requester = remember { BringIntoViewRequester() }
+    val focusScope = androidx.compose.runtime.rememberCoroutineScope()
+    MaterialOutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = label,
+        modifier = modifier
+            .bringIntoViewRequester(requester)
+            .onFocusEvent { focusState ->
+                if (focusState.isFocused) {
+                    focusScope.launch {
+                        delay(180)
+                        requester.bringIntoView()
+                    }
+                }
+            },
+    )
 }
 
 private data class HeightStatistics(val meanMeters: Double, val rangeMeters: Double)
@@ -356,17 +415,22 @@ private fun StationScreen(repository: ProjectStationRepository) {
             override fun onReceive(context: Context, intent: Intent) {
                 when (intent.action) {
                     BluetoothDevice.ACTION_FOUND -> {
-                        @Suppress("DEPRECATION")
-                        val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
-                        val entry = device?.let { it.name.orEmpty() to it.address.orEmpty() }
-                        if (entry != null && entry.second.isNotBlank()) {
-                            val previousIndex = discoveredBluetoothDevices.indexOfFirst { it.second == entry.second }
-                            if (previousIndex >= 0) {
-                                discoveredBluetoothDevices[previousIndex] = entry
-                            } else {
-                                discoveredBluetoothDevices += entry
+                        try {
+                            @Suppress("DEPRECATION")
+                            val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                            val entry = device?.let { it.name.orEmpty() to it.address.orEmpty() }
+                            if (entry != null && entry.second.isNotBlank()) {
+                                val previousIndex = discoveredBluetoothDevices.indexOfFirst { it.second == entry.second }
+                                if (previousIndex >= 0) {
+                                    discoveredBluetoothDevices[previousIndex] = entry
+                                } else {
+                                    discoveredBluetoothDevices += entry
+                                }
+                                discoveredBluetoothDevices.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.first.ifBlank { it.second } })
                             }
-                            discoveredBluetoothDevices.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.first.ifBlank { it.second } })
+                        } catch (_: SecurityException) {
+                            bluetoothScanning = false
+                            updateBluetoothDiscoveryStatus("O Android bloqueou a leitura do dispositivo. Autorize Dispositivos próximos.")
                         }
                     }
                     android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
@@ -389,7 +453,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
             addAction(BluetoothDevice.ACTION_FOUND)
             addAction(android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
         }
-        ContextCompat.registerReceiver(context, bluetoothDiscoveryReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        // ACTION_FOUND/DISCOVERY_FINISHED are emitted by the Android Bluetooth
+        // service, so the context receiver must accept system-originated events.
+        ContextCompat.registerReceiver(context, bluetoothDiscoveryReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
         onDispose { context.unregisterReceiver(bluetoothDiscoveryReceiver) }
     }
     BackHandler(enabled = route != "HOME") {
@@ -446,10 +512,15 @@ private fun StationScreen(repository: ProjectStationRepository) {
             }
         }
     }
+    val bluetoothPermissions = bluetoothRuntimePermissions()
     val bluetoothPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         val granted = permissions.values.all { it }
-        bluetoothDiscoveryStatus = if (granted) "Permissões Bluetooth concedidas. Toque novamente para procurar ou listar receptores."
-        else "Permissões Bluetooth negadas; não é possível procurar ou consultar dispositivos."
+        bluetoothDiscoveryStatus = if (granted) {
+            "Permissões concedidas. Toque novamente para procurar dispositivos próximos."
+        } else {
+            val denied = permissions.filterValues { !it }.keys.joinToString()
+            "Permissão necessária não concedida ($denied). Autorize Dispositivos próximos e tente novamente."
+        }
     }
     val inspectBluetoothServices: (String) -> Unit = { mac ->
         val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
@@ -638,7 +709,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
     MaterialTheme(colorScheme = lightColorScheme(primary = fieldBlue, secondary = Color(0xFF176E96), background = fieldBackground, surface = Color.White)) {
         Surface(modifier = Modifier.fillMaxSize(), color = fieldBackground) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 48.dp).verticalScroll(rememberScrollState()).imePadding().navigationBarsPadding(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 48.dp)
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -1066,24 +1142,25 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         OutlinedTextField(bluetoothName, { bluetoothName = it }, label = { Text("Nome Bluetooth, se conhecido") }, modifier = Modifier.fillMaxWidth())
                         OutlinedTextField(bluetoothMac, { bluetoothMac = it }, label = { Text("MAC Bluetooth, se conhecido") }, modifier = Modifier.fillMaxWidth())
                         Button(onClick = {
-                            val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                                (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
-                                    ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED)
-                            if (!permissionGranted) {
-                                bluetoothPermissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+                            if (!hasBluetoothRuntimePermissions(context)) {
+                                bluetoothPermissionLauncher.launch(bluetoothPermissions)
                             } else {
-                                val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
-                                when {
-                                    adapter == null -> bluetoothDiscoveryStatus = "Este aparelho não possui adaptador Bluetooth disponível."
-                                    !adapter.isEnabled -> bluetoothDiscoveryStatus = "Ative o Bluetooth do celular e tente novamente."
-                                    else -> {
-                                        pairedBluetoothDevices = adapter.bondedDevices
-                                            .map { it.name.orEmpty() to it.address.orEmpty() }
-                                            .sortedBy { it.first }
-                                        bluetoothDiscoveryStatus = if (pairedBluetoothDevices.isEmpty()) {
-                                            "Nenhum dispositivo pareado. Faça o pareamento nas configurações Android."
-                                        } else "Selecione um dispositivo pareado para registrar o perfil de bancada."
+                                try {
+                                    val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+                                    when {
+                                        adapter == null -> bluetoothDiscoveryStatus = "Este aparelho não possui adaptador Bluetooth disponível."
+                                        !adapter.isEnabled -> bluetoothDiscoveryStatus = "Ative o Bluetooth do celular e tente novamente."
+                                        else -> {
+                                            pairedBluetoothDevices = adapter.bondedDevices
+                                                .map { it.name.orEmpty() to it.address.orEmpty() }
+                                                .sortedBy { it.first }
+                                            bluetoothDiscoveryStatus = if (pairedBluetoothDevices.isEmpty()) {
+                                                "Nenhum dispositivo pareado. Faça o pareamento nas configurações Android."
+                                            } else "Selecione um dispositivo pareado para registrar o perfil de bancada."
+                                        }
                                     }
+                                } catch (_: SecurityException) {
+                                    bluetoothDiscoveryStatus = "O Android bloqueou a consulta. Autorize Dispositivos próximos e tente novamente."
                                 }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("LISTAR DISPOSITIVOS PAREADOS") }
@@ -1092,27 +1169,35 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             modifier = Modifier.fillMaxWidth(),
                         ) { Text("ABRIR CONFIGURAÇÕES BLUETOOTH") }
                         OutlinedButton(onClick = {
-                            val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                                (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
-                                    ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED)
-                            if (!permissionGranted) {
-                                bluetoothPermissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN))
+                            if (!hasBluetoothRuntimePermissions(context)) {
+                                bluetoothPermissionLauncher.launch(bluetoothPermissions)
+                            } else if (!isLocationEnabledForBluetoothDiscovery(context)) {
+                                bluetoothDiscoveryStatus = "Ative a Localização do Android para permitir a busca Bluetooth neste aparelho."
                             } else {
-                                val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
-                                when {
-                                    adapter == null -> bluetoothDiscoveryStatus = "Este aparelho não possui adaptador Bluetooth disponível."
-                                    !adapter.isEnabled -> bluetoothDiscoveryStatus = "Ative o Bluetooth do celular e tente novamente."
-                                    else -> {
-                                        if (adapter.isDiscovering) {
-                                            adapter.cancelDiscovery()
-                                            bluetoothScanning = false
-                                            bluetoothDiscoveryStatus = "Busca Bluetooth interrompida pelo operador."
-                                        } else {
-                                            discoveredBluetoothDevices.clear()
-                                            bluetoothScanning = adapter.startDiscovery()
-                                            bluetoothDiscoveryStatus = if (bluetoothScanning) "Procurando dispositivos Bluetooth próximos..." else "Não foi possível iniciar a busca Bluetooth."
+                                try {
+                                    val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+                                    when {
+                                        adapter == null -> bluetoothDiscoveryStatus = "Este aparelho não possui adaptador Bluetooth disponível."
+                                        !adapter.isEnabled -> bluetoothDiscoveryStatus = "Ative o Bluetooth do celular e tente novamente."
+                                        else -> {
+                                            if (adapter.isDiscovering) {
+                                                adapter.cancelDiscovery()
+                                                bluetoothScanning = false
+                                                bluetoothDiscoveryStatus = "Busca Bluetooth interrompida pelo operador."
+                                            } else {
+                                                discoveredBluetoothDevices.clear()
+                                                bluetoothScanning = adapter.startDiscovery()
+                                                bluetoothDiscoveryStatus = if (bluetoothScanning) {
+                                                    "Procurando dispositivos Bluetooth próximos… mantenha o receptor ligado."
+                                                } else {
+                                                    "O Android recusou a busca. Confirme Dispositivos próximos, Localização (Android até 11) e tente novamente."
+                                                }
+                                            }
                                         }
                                     }
+                                } catch (_: SecurityException) {
+                                    bluetoothScanning = false
+                                    bluetoothDiscoveryStatus = "Permissão Bluetooth insuficiente. Autorize Dispositivos próximos nas configurações do app."
                                 }
                             }
                         }, modifier = Modifier.fillMaxWidth()) {
@@ -1319,11 +1404,34 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         }
                     }
                 } else if (route == "ABOUT") {
-                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Text("SOBRE", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp)) }
-                    Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
-                    Text("F-21 Campo")
-                    Text("Versão ${BuildConfig.VERSION_NAME}")
-                    Text("Fluxo manual de rastreio, persistência e proveniência.")
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("F-21 Campo", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                            Text("Aquisição, conferência e rastreabilidade de ocupações de campo.", color = Color(0xFFD5EAF5))
+                            Text("Versão ${BuildConfig.VERSION_NAME} · funcionamento totalmente offline", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Sobre este app", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
+                            Text("Fluxo manual de rastreio, persistência, proveniência e recuperação de dados para trabalho de campo.")
+                            Text("Modo ${BuildConfig.BUILD_MODE}", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                        }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("Dúvidas e sugestões", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
+                            Text("Contato: gabrielpsmsn@gmail.com")
+                        }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Privacidade", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
+                            Text("Não há login, servidor ou sincronização em nuvem. O rascunho, os projetos, o Banco de Estações e as evidências permanecem no armazenamento local do aparelho.")
+                            HorizontalDivider()
+                            Text("Política de privacidade", color = fieldBlueDark, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 1) {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("INÍCIO") }
                     StepHeader(1, "PROJETO", "Identifique a comissão ou trabalho de campo.", fieldBlueDark)
