@@ -156,6 +156,27 @@ private fun StepHeader(step: Int, title: String, detail: String, fieldBlueDark: 
             Text("NOVO RASTREIO", color = Color.White, style = MaterialTheme.typography.titleLarge)
             Text("ETAPA $step/7 · $title", color = Color.White, style = MaterialTheme.typography.titleMedium)
             Text(detail, color = Color(0xFFD5EAF5))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                (1..7).forEach { index ->
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (index <= step) Color.White else Color(0x665A86A0),
+                        ),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            index.toString(),
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                            color = if (index <= step) fieldBlueDark else Color(0xFFD5EAF5),
+                            style = MaterialTheme.typography.labelSmall,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
+                }
+            }
         }
     }
 }
