@@ -1811,8 +1811,24 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("PRÓXIMOS ITENS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                             Text("1. Registre as alturas AFTER.")
-                            Text("2. Selecione o arquivo RAW já copiado para o celular.")
+                            Text("2. Importe o arquivo RAW diretamente nesta tela.")
                             Text("3. Finalize a coleta após as duas evidências.")
+                        }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("ARQUIVO BRUTO · RAW", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Escolha aqui um arquivo RAW que esteja acessível no celular. O F-21 copia o original para o armazenamento controlado, calcula o SHA-256 e associa a evidência a esta ocupação.", style = MaterialTheme.typography.bodySmall)
+                            Button(onClick = { rawPicker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
+                                Text("IMPORTAR RAW DO CELULAR")
+                            }
+                            Text(
+                                if (rawImported) "RAW_RECEIVER importado: ${rawSummary ?: "SHA-256 calculado"}"
+                                else "Nenhum RAW associado ainda",
+                                color = if (rawImported) fieldBlueDark else Color(0xFF52636D),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text("Importação direta da antena ainda não está disponível; ela depende de transporte e protocolo comprovados.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
@@ -1851,8 +1867,6 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             status = "${values.size} altura(s) AFTER registrada(s) em ${afterUnit}"
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR AFTER") }
-                    Button(onClick = { rawPicker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) { Text("SELECIONAR RAW JÁ COPIADO") }
-                    Text(if (rawImported) "RAW_RECEIVER: ${rawSummary ?: "associado com SHA-256"}" else "RAW pendente: selecione o arquivo já salvo no celular")
                     if (rawArtifacts.isNotEmpty()) {
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
