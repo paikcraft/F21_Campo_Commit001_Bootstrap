@@ -20,6 +20,6 @@ object OccupationReadiness {
         if (input.locality.isBlank()) add("localidade")
         if (!input.hasReference) add("referência RN/MT/PA")
         if (!input.hasEquipment) add("equipamento")
-        if (!input.hasBeforeHeight) add("altura BEFORE")
+        if (!input.hasBeforeHeight) add("altura antes do rastreio")
     }
 }

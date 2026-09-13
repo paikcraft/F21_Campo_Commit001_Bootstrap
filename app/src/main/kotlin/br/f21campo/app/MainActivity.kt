@@ -84,6 +84,7 @@ import br.f21campo.domain.ReceiverCatalogItem
 import br.f21campo.domain.AntennaCatalogItem
 import br.f21campo.receiver.api.ReceiverTransportType
 import br.f21campo.receiver.api.ReceiverConnectionProfile
+import br.f21campo.receiver.api.ReceiverConnectionState
 import br.f21campo.receiver.api.TcpReceiverTransport
 import br.f21campo.receiver.manual.ManualReceiverConnection
 import java.time.Instant
@@ -131,6 +132,105 @@ private fun heightUnitHint(readings: List<String>, selectedUnit: String?): Strin
         digitsOnly && first.length == 3 -> "Leitura com 3 dígitos: confirme a unidade ou informe onde está a vírgula."
         else -> "Selecione a unidade da altura antes de registrar."
     }
+}
+
+/**
+ * The domain keeps stable English identifiers for storage and interoperability.
+ * These helpers are the presentation boundary: anything shown to the operator
+ * is rendered in Portuguese without changing persisted values or file formats.
+ */
+private fun occupationStateLabel(state: OccupationState): String = when (state) {
+    OccupationState.DRAFT -> "RASCUNHO"
+    OccupationState.READY -> "PRONTO"
+    OccupationState.ACTIVE -> "ATIVO"
+    OccupationState.STOPPED -> "PARADO"
+    OccupationState.COLLECTED -> "COLETADO"
+    OccupationState.VALIDATED -> "VALIDADO"
+    OccupationState.ABORTED -> "ABORTADO"
+}
+
+private fun heightPhaseLabel(phase: HeightPhase): String = when (phase) {
+    HeightPhase.BEFORE -> "ANTES"
+    HeightPhase.AFTER -> "DEPOIS"
+}
+
+private fun heightTypeLabel(type: HeightType): String = when (type) {
+    HeightType.VERTICAL -> "VERTICAL"
+    HeightType.SLANT -> "INCLINADA"
+    HeightType.OTHER -> "OUTRA"
+}
+
+private fun eventCategoryLabel(category: OccupationEventCategory): String = when (category) {
+    OccupationEventCategory.NOTE -> "NOTA"
+    OccupationEventCategory.OBSTRUCTION -> "OBSTRUÇÃO"
+    OccupationEventCategory.WEATHER -> "CLIMA"
+    OccupationEventCategory.POWER -> "ENERGIA"
+    OccupationEventCategory.EQUIPMENT -> "EQUIPAMENTO"
+    OccupationEventCategory.CONNECTION -> "CONEXÃO"
+    OccupationEventCategory.OTHER -> "OUTRA"
+}
+
+private fun eventSeverityLabel(severity: EventSeverity): String = when (severity) {
+    EventSeverity.INFO -> "INFORMAÇÃO"
+    EventSeverity.WARNING -> "AVISO"
+    EventSeverity.ERROR -> "ERRO"
+}
+
+private fun buildModeLabel(mode: String): String = when (mode.uppercase()) {
+    "OPERATIONAL" -> "OPERACIONAL"
+    "LAB" -> "LABORATÓRIO"
+    else -> mode
+}
+
+private fun transportLabel(type: ReceiverTransportType): String = when (type) {
+    ReceiverTransportType.WIFI_TCP -> "WI-FI/TCP"
+    ReceiverTransportType.BLUETOOTH -> "BLUETOOTH"
+    ReceiverTransportType.SERIAL -> "SERIAL/USB"
+    ReceiverTransportType.UNKNOWN -> "DESCONHECIDO"
+}
+
+private fun connectionStateLabel(state: ReceiverConnectionState): String = when (state) {
+    ReceiverConnectionState.DISCONNECTED -> "DESCONECTADO"
+    ReceiverConnectionState.CONNECTING -> "CONECTANDO"
+    ReceiverConnectionState.CONNECTED -> "CONECTADO"
+    ReceiverConnectionState.FAILED -> "FALHOU"
+}
+
+private fun auditActionLabel(action: String): String = when {
+    action == "OCCUPATION_READY" -> "RASTREIO PRONTO"
+    action == "OCCUPATION_STARTED" -> "RASTREIO INICIADO"
+    action == "OCCUPATION_STOPPED" -> "RASTREIO PARADO"
+    action == "OCCUPATION_COLLECTED" -> "COLETA FINALIZADA"
+    action == "OCCUPATION_VALIDATED" -> "RASTREIO VALIDADO"
+    action == "EQUIPMENT_ASSOCIATED" -> "EQUIPAMENTO ASSOCIADO"
+    action == "HEIGHT_BEFORE_RECORDED" -> "ALTURA ANTES REGISTRADA"
+    action == "HEIGHT_AFTER_RECORDED" -> "ALTURA DEPOIS REGISTRADA"
+    action == "RAW_IMPORTED_SHA256" -> "ARQUIVO BRUTO IMPORTADO"
+    action == "RAW_HASH_VERIFIED" -> "ARQUIVO BRUTO VERIFICADO"
+    action == "RAW_HASH_INVALID" -> "ARQUIVO BRUTO COM HASH INVÁLIDO"
+    action.startsWith("OCCUPATION_EVENT_") -> {
+        val rawCategory = action.removePrefix("OCCUPATION_EVENT_")
+        val category = OccupationEventCategory.entries.firstOrNull { it.name == rawCategory }
+        "EVENTO DE CAMPO: ${category?.let(::eventCategoryLabel) ?: "OUTRA"}"
+    }
+    else -> "AÇÃO REGISTRADA"
+}
+
+private fun auditActorLabel(actor: String): String = when (actor.lowercase()) {
+    "operator" -> "operador"
+    else -> actor
+}
+
+private fun domainFailureLabel(error: br.f21campo.domain.DomainError): String = when (error) {
+    is br.f21campo.domain.DomainError.InvalidValue -> when (error.field) {
+        "referencePoint" -> "cadastre uma referência RN, MT ou PA antes de marcar como pronto"
+        "beforeHeight" -> "registre pelo menos uma altura antes do rastreio"
+        "afterHeight" -> "registre pelo menos uma altura depois do rastreio"
+        "rawEvidence" -> "importe um arquivo bruto antes de finalizar a coleta"
+        else -> "verifique os dados informados"
+    }
+    is br.f21campo.domain.DomainError.InvalidTransition -> "mudança de situação não permitida"
+    is br.f21campo.domain.DomainError.NotFound -> "registro não encontrado"
 }
 
 private fun bluetoothRuntimePermissions(): Array<String> =
@@ -256,7 +356,7 @@ private fun FieldTopBar(
                 Text(subtitle, color = Color(0xFFD5EAF5), style = MaterialTheme.typography.bodySmall)
             }
             Text(
-                BuildConfig.BUILD_MODE,
+                buildModeLabel(BuildConfig.BUILD_MODE),
                 color = Color(0xFFD5EAF5),
                 style = MaterialTheme.typography.labelSmall,
             )
@@ -277,12 +377,12 @@ private fun EventCaptureControls(
             Text("CLASSIFICAÇÃO DO EVENTO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 OccupationEventCategory.entries.forEach { item ->
-                    OutlinedButton(onClick = { onCategoryChange(item) }, enabled = category != item) { Text(item.name) }
+                    OutlinedButton(onClick = { onCategoryChange(item) }, enabled = category != item) { Text(eventCategoryLabel(item)) }
                 }
             }
             Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 EventSeverity.entries.forEach { item ->
-                    OutlinedButton(onClick = { onSeverityChange(item) }, enabled = severity != item) { Text(item.name) }
+                    OutlinedButton(onClick = { onSeverityChange(item) }, enabled = severity != item) { Text(eventSeverityLabel(item)) }
                 }
             }
         }
@@ -479,7 +579,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 rawImported = true
                 rawArtifacts = repository.findRawArtifacts(occupation.id)
                 rawSummary = "${stored.sha256.take(12)} · ${stored.sizeBytes} bytes"
-                status = "Bruto RAW_RECEIVER importado: ${stored.sha256.take(12)}…"
+                status = "Arquivo bruto do receptor importado: ${stored.sha256.take(12)}…"
             }
         }
     }
@@ -492,7 +592,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
                         ?: error("Não foi possível abrir o arquivo de destino")
                 }.onSuccess { status = "Banco exportado como dados estruturados" }
-                    .onFailure { status = "Falha ao exportar banco: ${it.message ?: "erro desconhecido"}" }
+                    .onFailure { status = "Falha ao exportar banco: não foi possível concluir a operação" }
             }
         }
     }
@@ -507,9 +607,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     check(json.optInt("formatVersion", -1) == 1) { "Versão de troca não suportada" }
                     val envelope = DatabaseExchangeJsonCodec.decodeCore(text)
                     val summary = repository.importCoreExchange(envelope).getOrThrow()
-                    "Banco importado por upsert: ${summary.projects} projeto(s), ${summary.stations} estação(ões), ${summary.referencePoints} referência(s), ${summary.occupations} ocupação(ões), ${summary.heights} altura(s), conflitos atualizados: ${summary.conflicts.size}"
+                    "Banco importado sem duplicação: ${summary.projects} projeto(s), ${summary.stations} estação(ões), ${summary.referencePoints} referência(s), ${summary.occupations} ocupação(ões), ${summary.heights} altura(s), conflitos atualizados: ${summary.conflicts.size}"
                 }.onSuccess { status = it }
-                    .onFailure { status = "Importação rejeitada: ${it.message ?: "arquivo inválido"}" }
+                    .onFailure { status = "Importação rejeitada: arquivo inválido ou incompatível" }
             }
         }
     }
@@ -615,7 +715,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
             !pending.hasBeforeHeight -> 5
             else -> 6
         }
-        status = "Rastreio recuperado: ${pending.state}"
+        status = "Rastreio recuperado: ${occupationStateLabel(pending.state)}"
         route = when (pending.state) {
             OccupationState.ACTIVE -> "ACTIVE"
             OccupationState.STOPPED, OccupationState.COLLECTED, OccupationState.VALIDATED -> "FINALIZATION"
@@ -709,7 +809,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 listOfNotNull(
                     station?.name,
                     reference?.let { point -> "${point.type.name} ${point.code}" },
-                    it.state.name,
+                    occupationStateLabel(it.state),
                 ).joinToString(" · ")
             }
         }
@@ -752,7 +852,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 if (route == "HOME") {
                     FieldTopBar(
                         title = "F-21 Campo",
-                        subtitle = "${BuildConfig.BUILD_MODE} · operação offline",
+                        subtitle = "${buildModeLabel(BuildConfig.BUILD_MODE)} · sem conexão",
                         showBack = false,
                         onBack = {},
                         fieldBlueDark = fieldBlueDark,
@@ -784,9 +884,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("F-21 Campo", color = Color.White, style = MaterialTheme.typography.headlineMedium)
-                            Text("INÍCIO · ${BuildConfig.BUILD_MODE}", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.labelLarge)
+                            Text("INÍCIO · ${buildModeLabel(BuildConfig.BUILD_MODE)}", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.labelLarge)
                             Text("Aquisição e rastreio de referências", color = Color.White, style = MaterialTheme.typography.titleMedium)
-                            Text("Operação offline · pronta para campo", color = Color(0xFFD5EAF5))
+                            Text("Operação sem conexão · pronta para campo", color = Color(0xFFD5EAF5))
                             Text("Versão ${BuildConfig.VERSION_NAME}", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.labelLarge)
                         }
                     }
@@ -859,7 +959,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             projects = repository.findAllProjects()
                             projectEditorId = project.id
                             projectEditorCreatedAt = project.createdAt
-                            status = "Projeto salvo localmente — ID preservado"
+                            status = "Projeto salvo localmente — identificador preservado"
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text(if (projectEditorId == null) "SALVAR PROJETO" else "ATUALIZAR PROJETO") }
                     if (projectEditorId != null) {
@@ -882,8 +982,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             name = project.name
                             projectEditorId = project.id
                             projectEditorCreatedAt = project.createdAt
-                            status = "Projeto aberto: ${project.name} · ID preservado"
-                        }, modifier = Modifier.fillMaxWidth()) { Text("${project.name} · ID ${project.id.value.take(8)}") }
+                            status = "Projeto aberto: ${project.name} · identificador preservado"
+                        }, modifier = Modifier.fillMaxWidth()) { Text("${project.name} · identificador ${project.id.value.take(8)}") }
                     }
                     Text(status)
                 } else if (route == "STATIONS") {
@@ -907,7 +1007,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             savedId = station.id
                             stationEditorCreatedAt = station.createdAt
                             stations = repository.findAllStations()
-                            status = "Estação salva localmente — ID preservado"
+                            status = "Estação salva localmente — identificador preservado"
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text(if (savedId == null) "SALVAR ESTAÇÃO" else "ATUALIZAR ESTAÇÃO") }
                     if (savedId != null) {
@@ -933,8 +1033,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             locality = station.locality.orEmpty()
                             municipality = station.municipality.orEmpty()
                             scope.launch { stationHistory = repository.findOccupationsByStation(station.id) }
-                            status = "Estação aberta: ${station.name} · ID preservado"
-                        }, modifier = Modifier.fillMaxWidth()) { Text("${station.name} · ${station.locality ?: "sem localidade"} · ID ${station.id.value.take(8)}") }
+                            status = "Estação aberta: ${station.name} · identificador preservado"
+                        }, modifier = Modifier.fillMaxWidth()) { Text("${station.name} · ${station.locality ?: "sem localidade"} · identificador ${station.id.value.take(8)}") }
                     }
                     if (savedId != null) {
                         Text("HISTÓRICO DE RASTREIOS", style = MaterialTheme.typography.titleMedium)
@@ -942,7 +1042,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         stationHistory.forEach { item ->
                             Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Estado: ${item.state}", style = MaterialTheme.typography.titleSmall)
+                                    Text("Situação: ${occupationStateLabel(item.state)}", style = MaterialTheme.typography.titleSmall)
                                     Text("Início: ${item.confirmedStart ?: item.plannedStart ?: "não iniciado"}")
                                     Text("Fim: ${item.confirmedStop ?: "em aberto"}")
                                     Button(onClick = {
@@ -978,7 +1078,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Text("Projeto/LH: ${reviewedProjectName.ifBlank { "não localizado" }}")
                         Text("Estação: ${reviewedStationName.ifBlank { "não localizada" }}")
                         Text("Referência: ${reviewedReference?.let { "${it.type} ${it.code}" } ?: "não registrada"}")
-                        Text("Status: ${reviewed.state}")
+                        Text("Situação: ${occupationStateLabel(reviewed.state)}")
                         Text("Início: ${reviewed.confirmedStart ?: "não iniciado"}")
                         Text("Fim: ${reviewed.confirmedStop ?: "em aberto"}")
                         Text("Receptor: ${reviewed.equipment?.receiver?.model ?: "não informado"}")
@@ -989,7 +1089,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         val afterStatistics = heightStatistics(reviewedHeights.filter { it.phase == HeightPhase.AFTER })
                         reviewedHeights.groupBy { it.phase }.forEach { (phase, values) ->
                             val statistics = heightStatistics(values)
-                            Text("$phase: ${values.joinToString { "%.4f m".format(it.valueMeters) }}")
+                            Text("${heightPhaseLabel(phase)}: ${values.joinToString { "%.4f m".format(it.valueMeters) }}")
                             statistics?.let { Text("Média: %.4f m · amplitude: %.4f m".format(it.meanMeters, it.rangeMeters)) }
                         }
                         if (beforeStatistics != null && afterStatistics != null) {
@@ -998,20 +1098,20 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Text("EVENTOS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                         if (reviewedEvents.isEmpty()) Text("Nenhum evento registrado")
                         reviewedEvents.forEach { savedEvent -> Text("${savedEvent.at}: ${savedEvent.description}") }
-                        Text("RAW_RECEIVER: ${reviewedRawSummary ?: "não associado"}")
+                        Text("Arquivo bruto do receptor: ${reviewedRawSummary ?: "não associado"}")
                     }
                 } else if (route == "SETTINGS") {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAÇÕES", color = Color.White, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp)) }
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
-                    Text("Modo: ${BuildConfig.BUILD_MODE}")
-                    Text("O aplicativo funciona offline e registra a origem manual dos equipamentos.")
+                    Text("Modo: ${buildModeLabel(BuildConfig.BUILD_MODE)}")
+                    Text("O aplicativo funciona sem conexão e registra a origem manual dos equipamentos.")
                     Button(onClick = { route = "CONNECTION" }, modifier = Modifier.fillMaxWidth()) { Text("CONEXÃO DE BANCADA") }
                     Button(onClick = { route = "EQUIPMENT" }, modifier = Modifier.fillMaxWidth()) { Text("CATÁLOGO DE EQUIPAMENTOS") }
                 } else if (route == "EQUIPMENT") {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("CATÁLOGO DE EQUIPAMENTOS", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                            Text("Receptor e antena são catálogos manuais independentes. Editar um item não altera snapshots de ocupações antigas.", color = Color(0xFFD5EAF5))
+                            Text("Receptor e antena são catálogos manuais independentes. Editar um item não altera as cópias históricas das ocupações antigas.", color = Color(0xFFD5EAF5))
                         }
                     }
                     Button(onClick = { route = "HOME"; showHome = true }, modifier = Modifier.fillMaxWidth()) { Text("← INÍCIO") }
@@ -1021,7 +1121,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante") }, modifier = Modifier.fillMaxWidth())
                             OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo") }, modifier = Modifier.fillMaxWidth())
                             OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Número de série") }, modifier = Modifier.fillMaxWidth())
-                            OutlinedTextField(receiverFirmware, { receiverFirmware = it }, label = { Text("Firmware (se informado)") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(receiverFirmware, { receiverFirmware = it }, label = { Text("Versão do receptor (se informada)") }, modifier = Modifier.fillMaxWidth())
                             Button(onClick = {
                                 scope.launch {
                                     val item = ReceiverCatalogItem(
@@ -1045,7 +1145,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF3F8)), modifier = Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(listOfNotNull(item.manufacturer, item.model).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "), color = fieldBlueDark)
-                                        Text(listOfNotNull(item.serialNumber?.let { "S/N $it" }, item.firmware?.let { "FW $it" }).joinToString(" · ").ifBlank { "Sem serial/firmware informado" }, style = MaterialTheme.typography.bodySmall)
+                            Text(listOfNotNull(item.serialNumber?.let { "Nº $it" }, item.firmware?.let { "Versão $it" }).joinToString(" · ").ifBlank { "Sem número de série/versão informada" }, style = MaterialTheme.typography.bodySmall)
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             OutlinedButton(onClick = {
                                                 selectedReceiverCatalogId = item.id
@@ -1097,7 +1197,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF3F8)), modifier = Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(listOfNotNull(item.manufacturer, item.model).ifEmpty { listOf("Antena sem identificação") }.joinToString(" · "), color = fieldBlueDark)
-                                        Text(item.serialNumber?.let { "S/N $it" } ?: "Sem número de série informado", style = MaterialTheme.typography.bodySmall)
+                                        Text(item.serialNumber?.let { "Nº $it" } ?: "Sem número de série informado", style = MaterialTheme.typography.bodySmall)
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             OutlinedButton(onClick = {
                                                 selectedAntennaCatalogId = item.id
@@ -1150,7 +1250,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         connectionNotes = profile.notes.orEmpty()
                                         connectionStatus = "Favorito carregado. Nenhum comando foi enviado ao receptor."
                                     }, modifier = Modifier.fillMaxWidth()) {
-                                        Text(listOfNotNull(profile.receiverManufacturer, profile.receiverModel, profile.receiverSerial?.let { "S/N $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
+                                        Text(listOfNotNull(profile.receiverManufacturer, profile.receiverModel, profile.receiverSerial?.let { "Nº $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
                                     }
                                 }
                             }
@@ -1159,11 +1259,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante do receptor GNSS") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor GNSS") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Nº de série do receptor GNSS") }, modifier = Modifier.fillMaxWidth())
-                    Text("Transporte", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Meio de conexão", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { connectionTransport = ReceiverTransportType.WIFI_TCP }, enabled = connectionTransport != ReceiverTransportType.WIFI_TCP) { Text("WI-FI/TCP") }
-                        Button(onClick = { connectionTransport = ReceiverTransportType.BLUETOOTH }, enabled = connectionTransport != ReceiverTransportType.BLUETOOTH) { Text("BT") }
-                        Button(onClick = { connectionTransport = ReceiverTransportType.SERIAL }, enabled = connectionTransport != ReceiverTransportType.SERIAL) { Text("SERIAL") }
+                        Button(onClick = { connectionTransport = ReceiverTransportType.BLUETOOTH }, enabled = connectionTransport != ReceiverTransportType.BLUETOOTH) { Text("BLUETOOTH") }
+                        Button(onClick = { connectionTransport = ReceiverTransportType.SERIAL }, enabled = connectionTransport != ReceiverTransportType.SERIAL) { Text("SERIAL/USB") }
                     }
                     if (connectionTransport == ReceiverTransportType.WIFI_TCP || connectionTransport == ReceiverTransportType.SERIAL) {
                         OutlinedTextField(connectionHost, { connectionHost = it }, label = { Text("IP/endereço do receptor") }, modifier = Modifier.fillMaxWidth())
@@ -1313,7 +1413,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                                     try { bluetoothSocketHolder[0]?.close() } catch (_: IOException) { }
                                                     bluetoothSocketHolder[0] = null
                                                     bluetoothChannelOpen = false
-                                                    "Falha ao abrir canal RFCOMM: ${error.message ?: error::class.simpleName}"
+                                                    "Falha ao abrir canal RFCOMM (${error::class.simpleName ?: "erro técnico"})"
                                                 }
                                             }
                                             bluetoothTransportStatus = result
@@ -1392,7 +1492,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             } else {
                                 manualConnection.connect(endpoint)
                             }
-                            connectionStatus = "${result.state}: ${result.message ?: "sem mensagem"}"
+                            connectionStatus = "${connectionStateLabel(result.state)}: ${result.message ?: "sem mensagem"}"
                             status = if (result.state == br.f21campo.receiver.api.ReceiverConnectionState.CONNECTED) {
                                 "TCP alcançável — nenhum comando Spectra foi enviado"
                             } else "Perfil de conexão registrado para bancada"
@@ -1403,14 +1503,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             val result = if (connectionTransport == ReceiverTransportType.WIFI_TCP) {
                                 withContext(Dispatchers.IO) { tcpTransport.close() }
                             } else manualConnection.disconnect()
-                            connectionStatus = "${result.state}: ${result.message ?: "sem mensagem"}"
+                            connectionStatus = "${connectionStateLabel(result.state)}: ${result.message ?: "sem mensagem"}"
                         }
                     }, modifier = Modifier.fillMaxWidth()) { Text("DESCONECTAR") }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Estado", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                             Text(connectionStatus)
-                            Text("No Wi-Fi/TCP, o app testa somente se a porta aceita conexão. No Bluetooth, ele lista dispositivos já pareados. Não envia RID, START, STOP nem outro comando Spectra. RFCOMM/BLE, UUID, framing e respostas dependem de validação física.")
+                            Text("No Wi-Fi/TCP, o aplicativo verifica somente se a porta aceita conexão. No Bluetooth, lista dispositivos já pareados. Não envia RID, comandos de iniciar/parar nem qualquer outro comando Spectra. RFCOMM/BLE, UUID, estrutura das mensagens e respostas dependem de validação física.")
                         }
                     }
                     if (connectionProfiles.isNotEmpty()) {
@@ -1430,7 +1530,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 connectionStatus = "Perfil carregado; teste a conexão quando o receptor estiver acessível"
                             }, modifier = Modifier.fillMaxWidth()) {
                                 val label = profile.receiverModel ?: profile.hostOrAddress ?: profile.bluetoothName ?: "perfil sem endereço"
-                                Text("${profile.transportType}: $label${profile.port?.let { ":$it" }.orEmpty()}")
+                                Text("${transportLabel(profile.transportType)}: $label${profile.port?.let { ":$it" }.orEmpty()}")
                             }
                         }
                     }
@@ -1439,14 +1539,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("F-21 Campo", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                             Text("Aquisição, conferência e rastreabilidade de ocupações de campo.", color = Color(0xFFD5EAF5))
-                            Text("Versão ${BuildConfig.VERSION_NAME} · funcionamento totalmente offline", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.bodySmall)
+                            Text("Versão ${BuildConfig.VERSION_NAME} · funcionamento sem conexão", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Sobre este app", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
+                            Text("Sobre o aplicativo", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
                             Text("Fluxo manual de rastreio, persistência, proveniência e recuperação de dados para trabalho de campo.")
-                            Text("Modo ${BuildConfig.BUILD_MODE}", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                            Text("Modo ${buildModeLabel(BuildConfig.BUILD_MODE)}", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
@@ -1477,7 +1577,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     ?: br.f21campo.domain.Project(EntityId.new(), normalizedName, Instant.now())
                                 repository.save(project)
                                 occupation = occupation.copy(projectId = project.id)
-                                status = if (project.id.value.isNotBlank()) "Projeto salvo/selecionado — ID preservado" else "Projeto salvo localmente"
+                                status = if (project.id.value.isNotBlank()) "Projeto salvo/selecionado — identificador preservado" else "Projeto salvo localmente"
                                 newStep = 2
                             }
                         }
@@ -1517,7 +1617,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 repository.save(station)
                                 occupation = occupation.copy(stationId = station.id)
                                 occupationPersisted = true
-                                status = "Estação salva/selecionada — ID preservado"
+                                status = "Estação salva/selecionada — identificador preservado"
                                 newStep = 3
                             }
                         }
@@ -1589,7 +1689,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         receiverSerial = profile.receiverSerial.orEmpty()
                                         status = "Receptor favorito selecionado: ${profile.receiverModel ?: "sem modelo"}"
                                     }, modifier = Modifier.fillMaxWidth()) {
-                                        Text(listOfNotNull(profile.receiverManufacturer, profile.receiverModel, profile.receiverSerial?.let { "S/N $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
+                                Text(listOfNotNull(profile.receiverManufacturer, profile.receiverModel, profile.receiverSerial?.let { "Nº $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
                                     }
                                 }
                             }
@@ -1599,7 +1699,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text("CATÁLOGO MANUAL", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
-                                Text("Selecione um equipamento já cadastrado. Esses dados são informados pelo operador e serão copiados para o snapshot desta ocupação.")
+                                Text("Selecione um equipamento já cadastrado. Esses dados são informados pelo operador e serão copiados para o registro histórico desta ocupação.")
                                 receiverCatalog.forEach { item ->
                                     OutlinedButton(onClick = {
                                         selectedReceiverCatalogId = item.id
@@ -1609,7 +1709,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         receiverFirmware = item.firmware.orEmpty()
                                         status = "Receptor do catálogo selecionado"
                                     }, modifier = Modifier.fillMaxWidth()) {
-                                        Text(listOfNotNull(item.manufacturer, item.model, item.serialNumber?.let { "S/N $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
+                                        Text(listOfNotNull(item.manufacturer, item.model, item.serialNumber?.let { "Nº $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
                                     }
                                 }
                                 antennaCatalog.forEach { item ->
@@ -1620,7 +1720,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                         antennaSerial = item.serialNumber.orEmpty()
                                         status = "Antena do catálogo selecionada"
                                     }, modifier = Modifier.fillMaxWidth()) {
-                                        Text(listOfNotNull(item.manufacturer, item.model, item.serialNumber?.let { "S/N $it" }).ifEmpty { listOf("Antena sem identificação") }.joinToString(" · "))
+                                        Text(listOfNotNull(item.manufacturer, item.model, item.serialNumber?.let { "Nº $it" }).ifEmpty { listOf("Antena sem identificação") }.joinToString(" · "))
                                     }
                                 }
                             }
@@ -1629,7 +1729,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
                     OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante do receptor") })
                     OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Nº de série do receptor") })
-                    OutlinedTextField(receiverFirmware, { receiverFirmware = it }, label = { Text("Firmware do receptor (se informado)") })
+                    OutlinedTextField(receiverFirmware, { receiverFirmware = it }, label = { Text("Versão do receptor (se informada)") })
                     OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo da antena") })
                     OutlinedTextField(antennaManufacturer, { antennaManufacturer = it }, label = { Text("Fabricante da antena") })
                     OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Nº de série da antena") })
@@ -1672,7 +1772,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 5) {
                     Button(onClick = { newStep = 4 }) { Text("VOLTAR") }
-                    StepHeader(5, "ALTURAS BEFORE", "Registre pelo menos uma leitura antes de iniciar.", fieldBlueDark)
+                    StepHeader(5, "ALTURAS ANTES", "Registre pelo menos uma leitura antes de iniciar.", fieldBlueDark)
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("ALTURA DA ANTENA · ANTES", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
@@ -1682,18 +1782,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Text("Selecionada: ${beforeUnit ?: "nenhuma — selecione uma unidade"}")
                             heightUnitHint(before, beforeUnit)?.let { Text(it, color = fieldBlueDark) }
                             Text("TIPO DA MEDIÇÃO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { beforeType = type }, enabled = beforeType != type) { Text(type.name) } } }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { beforeType = type }, enabled = beforeType != type) { Text(heightTypeLabel(type)) } } }
                             before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }, modifier = Modifier.fillMaxWidth()) }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }; Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") } }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ ANTES") }; Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }; Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") } }
                         }
                     }
                     Button(onClick = {
                         val values = before.mapNotNull(String::toDoubleOrNull).filter { it.isFinite() }
                         val firstValid = values.firstOrNull()?.let { heightToMeters(it, beforeUnit) }
                         if (beforeUnit == null) {
-                            status = heightUnitHint(before, beforeUnit) ?: "Confirme a unidade da altura BEFORE"
+                            status = heightUnitHint(before, beforeUnit) ?: "Confirme a unidade da altura antes do rastreio"
                         } else if (firstValid == null) {
-                            status = "Informe uma altura BEFORE válida"
+                            status = "Informe pelo menos uma altura válida antes do rastreio"
                         } else {
                             val currentOccupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = firstValid)
                             occupation = currentOccupation
@@ -1704,11 +1804,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     values.map { value -> HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, beforeType, Instant.now(), "unit=${beforeUnit}") },
                                 )
                                 recordAudit("HEIGHT_BEFORE_RECORDED")
-                                status = "${values.size} altura(s) BEFORE registrada(s) em ${beforeUnit} — pronto para READY"
+                                status = "${values.size} altura(s) de antes registrada(s) em ${beforeUnit} — pronto para iniciar"
                                 newStep = 6
                             }
                         }
-                    }) { Text("REGISTRAR BEFORE E AVANÇAR") }
+                    }) { Text("REGISTRAR ANTES E AVANÇAR") }
                     Text(status)
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 6) {
                     Button(onClick = { newStep = 5 }) { Text("VOLTAR") }
@@ -1716,11 +1816,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Checklist para iniciar", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
-                            Text("Projeto/LH: ${if (projectName.isNotBlank()) "OK" else "pendente"}")
-                            Text("Estação/localidade: ${if (name.isNotBlank() && locality.isNotBlank()) "OK" else "pendente"}")
-                            Text("Referência RN/MT/PA: ${if (occupation.referencePointId != null) "OK" else "pendente"}")
-                            Text("Equipamento manual: ${if (occupation.equipment != null) "OK" else "pendente"}")
-                            Text("Altura BEFORE: ${if (occupation.hasBeforeHeight) "OK" else "pendente"}")
+                            Text("Projeto/LH: ${if (projectName.isNotBlank()) "certo" else "pendente"}")
+                            Text("Estação/localidade: ${if (name.isNotBlank() && locality.isNotBlank()) "certo" else "pendente"}")
+                            Text("Referência RN/MT/PA: ${if (occupation.referencePointId != null) "certo" else "pendente"}")
+                            Text("Equipamento manual: ${if (occupation.equipment != null) "certo" else "pendente"}")
+                            Text("Altura antes: ${if (occupation.hasBeforeHeight) "certo" else "pendente"}")
                             Text("Tempo planejado: ${occupation.plannedDurationSeconds?.let { "${it / 60} min" } ?: "indefinido"}")
                         }
                     }
@@ -1742,18 +1842,18 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 occupation.equipment == null -> 4
                                 else -> 5
                             }
-                            status = "READY bloqueado: complete ${missing.joinToString(", ")}"
+                            status = "Pronto bloqueado: complete ${missing.joinToString(", ")}"
                         } else {
                             val result = OccupationStateMachine.ready(occupation)
                             if (result is DomainResult.Success) {
                                 occupation = result.value
                                 recordAudit("OCCUPATION_READY")
-                                status = "READY confirmado — toque em INICIAR"
+                                status = "Pronto confirmado — toque em INICIAR"
                             } else {
-                                status = "READY bloqueado pela máquina de estados"
+                                status = "Pronto bloqueado pela máquina de estados"
                             }
                         }
-                    }, modifier = Modifier.fillMaxWidth()) { Text("READY") }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("PRONTO") }
                     Button(enabled = occupation.state == OccupationState.READY, onClick = {
                         val result = OccupationStateMachine.start(occupation, Instant.now())
                         if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; recordAudit("OCCUPATION_STARTED"); route = "ACTIVE"; status = "Rastreio iniciado" }
@@ -1762,7 +1862,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 } else if (route == "NEW" && occupation.state == OccupationState.READY) {
                     Button(onClick = { route = "HOME"; showHome = true }) { Text("← INÍCIO") }
                     Text("RASTREIO PRONTO", style = MaterialTheme.typography.headlineSmall)
-                    Text("ETAPA 6/7 · READY", style = MaterialTheme.typography.titleMedium)
+                    Text("ETAPA 6/7 · PRONTO", style = MaterialTheme.typography.titleMedium)
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Tudo pronto para iniciar", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
@@ -1792,7 +1892,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val reached = trackingTime?.targetReached == true
                     Card(colors = CardDefaults.cardColors(containerColor = if (reached) Color(0xFFFFF4D6) else Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Status: ACTIVE", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Situação: ATIVO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                             Text("Referência: ${referenceType.name} ${referenceCode.ifBlank { "selecionada" }}")
                             Text("Cronômetro: ${activeElapsed?.let { "${it / 60}m ${it % 60}s" } ?: "aguardando"}")
                             Text("Meta: ${target?.let { "${it / 60} min" } ?: "indefinida"}")
@@ -1819,9 +1919,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text("LINHA DO TEMPO · ${fieldEvents.size} evento(s) · ${auditEvents.size} auditoria(s)", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                                 fieldEvents.takeLast(3).forEach { savedEvent ->
-                                    Text("${savedEvent.at}: ${savedEvent.category}/${savedEvent.severity} · ${savedEvent.description}")
+                                    Text("${savedEvent.at}: ${eventCategoryLabel(savedEvent.category)} / ${eventSeverityLabel(savedEvent.severity)} · ${savedEvent.description}")
                                 }
-                                auditEvents.takeLast(3).forEach { savedAudit -> Text("${savedAudit.at}: ${savedAudit.action} · ${savedAudit.actor}", style = MaterialTheme.typography.bodySmall) }
+                                auditEvents.takeLast(3).forEach { savedAudit -> Text("${savedAudit.at}: ${auditActionLabel(savedAudit.action)} · ${auditActorLabel(savedAudit.actor)}", style = MaterialTheme.typography.bodySmall) }
                             }
                         }
                     }
@@ -1835,38 +1935,38 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("FINALIZAÇÃO", color = Color.White, style = MaterialTheme.typography.headlineSmall)
                             Text("Referência: ${referenceCode.ifBlank { "ocupação recuperada" }}", color = Color(0xFFD5EAF5))
-                            Text("Status: ${occupation.state}", color = Color(0xFFD5EAF5))
+                            Text("Situação: ${occupationStateLabel(occupation.state)}", color = Color(0xFFD5EAF5))
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("PRÓXIMOS ITENS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
-                            Text("1. Registre as alturas AFTER.")
-                            Text("2. Importe o arquivo RAW diretamente nesta tela.")
+                            Text("1. Registre as alturas depois do rastreio.")
+                            Text("2. Importe o arquivo bruto diretamente nesta tela.")
                             Text("3. Finalize a coleta após as duas evidências.")
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("ARQUIVO BRUTO · RAW", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
-                            Text("Escolha aqui um arquivo RAW que esteja acessível no celular. O F-21 copia o original para o armazenamento controlado, calcula o SHA-256 e associa a evidência a esta ocupação.", style = MaterialTheme.typography.bodySmall)
+                            Text("ARQUIVO BRUTO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Escolha aqui um arquivo bruto acessível no celular. O F-21 copia o original para o armazenamento controlado, calcula o SHA-256 e associa a evidência a esta ocupação.", style = MaterialTheme.typography.bodySmall)
                             Button(onClick = { rawPicker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) {
-                                Text("IMPORTAR RAW DO CELULAR")
+                                Text("IMPORTAR ARQUIVO DO CELULAR")
                             }
                             Text(
-                                if (rawImported) "RAW_RECEIVER importado: ${rawSummary ?: "SHA-256 calculado"}"
-                                else "Nenhum RAW associado ainda",
+                                if (rawImported) "Arquivo bruto do receptor importado: ${rawSummary ?: "SHA-256 calculado"}"
+                                else "Nenhum arquivo bruto associado ainda",
                                 color = if (rawImported) fieldBlueDark else Color(0xFF52636D),
                                 style = MaterialTheme.typography.bodySmall,
                             )
-                            Text("Importação direta da antena ainda não está disponível; ela depende de transporte e protocolo comprovados.", style = MaterialTheme.typography.bodySmall)
+                            Text("Importação direta do receptor ainda não está disponível; ela depende de meio de conexão e protocolo comprovados.", style = MaterialTheme.typography.bodySmall)
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("ALTURA DA ANTENA · DEPOIS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
-                            Text("Registre as leituras AFTER antes de finalizar a coleta.", style = MaterialTheme.typography.bodySmall)
-                            Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
+                            Text("Registre as leituras depois do rastreio antes de finalizar a coleta.", style = MaterialTheme.typography.bodySmall)
+                            Text("Unidade depois: ${afterUnit ?: "não selecionada"}")
                             heightUnitHint(after, afterUnit)?.let { Text(it, color = fieldBlueDark) }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 listOf("mm", "cm", "m").forEach { unit ->
@@ -1874,10 +1974,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 }
                             }
                             Text("TIPO DA MEDIÇÃO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { afterType = type }, enabled = afterType != type) { Text(type.name) } } }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { afterType = type }, enabled = afterType != type) { Text(heightTypeLabel(type)) } } }
                             after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }, modifier = Modifier.fillMaxWidth()) }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ AFTER") }
+                                Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ DEPOIS") }
                                 Button(enabled = after.size > 1, onClick = { afterUndo = afterUndo + listOf(after); after = after.dropLast(1) }) { Text("−") }
                                 Button(enabled = afterUndo.isNotEmpty(), onClick = { after = afterUndo.last(); afterUndo = afterUndo.dropLast(1) }) { Text("DESFAZER") }
                             }
@@ -1885,8 +1985,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     Button(onClick = {
                         val values = after.mapNotNull(String::toDoubleOrNull).filter { it.isFinite() }
-                        if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura AFTER"
-                        else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida"
+                        if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura depois do rastreio"
+                        else if (values.isEmpty()) status = "Informe pelo menos uma altura válida depois do rastreio"
                         else scope.launch {
                             repository.replaceHeights(
                                 occupation.id,
@@ -1895,13 +1995,13 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             )
                             recordAudit("HEIGHT_AFTER_RECORDED")
                             afterRegistered = true
-                            status = "${values.size} altura(s) AFTER registrada(s) em ${afterUnit}"
+                            status = "${values.size} altura(s) de depois registrada(s) em ${afterUnit}"
                         }
-                    }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR AFTER") }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR DEPOIS") }
                     if (rawArtifacts.isNotEmpty()) {
                         Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text("INVENTÁRIO RAW", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                Text("INVENTÁRIO DE ARQUIVOS BRUTOS", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
                                 rawArtifacts.forEach { artifact ->
                                     Text(artifact.path.substringAfterLast(File.separator), color = fieldBlueDark)
                                     Text("SHA-256: ${artifact.sha256}", style = MaterialTheme.typography.bodySmall)
@@ -1915,7 +2015,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             }
                         }
                     }
-                    Text(if (afterRegistered) "Altura AFTER registrada" else "Altura AFTER pendente")
+                    Text(if (afterRegistered) "Altura depois registrada" else "Altura depois pendente")
                     Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
                         val result = OccupationStateMachine.collectWithEvidence(occupation, hasRawEvidence = rawImported, hasAfterHeight = afterRegistered)
                         if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_COLLECTED") }
@@ -1933,7 +2033,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Text(if (occupation.state == OccupationState.ACTIVE) "Etapa 6/7 — Rastreio" else if (occupation.state == OccupationState.STOPPED) "Etapa 7/7 — Finalização" else "Etapa 1/7 — Preparação")
                 if (occupation.state == OccupationState.ACTIVE) {
                     Text("REFERÊNCIA: ${referenceCode.ifBlank { "selecionada" }}")
-                    Text("STATUS: RASTREIO ATIVO")
+                Text("SITUAÇÃO: RASTREIO ATIVO")
                     val activeElapsed = occupation.confirmedStart?.let { ((nowEpochMillis - it.toEpochMilli()).coerceAtLeast(0) / 1000) }
                     Text("CRONÔMETRO: ${activeElapsed?.let { "${it / 60}m ${it % 60}s" } ?: "aguardando"}")
                     Text("Receptor: ${occupation.equipment?.receiver?.model ?: receiverModel.ifBlank { "manual" }}")
@@ -1945,7 +2045,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 } else {
                 Text("F-21 Campo", style = MaterialTheme.typography.headlineMedium)
                 Text("Versão ${BuildConfig.VERSION_NAME}")
-                Text("Modo: ${BuildConfig.BUILD_MODE}")
+                Text("Modo: ${buildModeLabel(BuildConfig.BUILD_MODE)}")
                 Text(status)
                 OutlinedTextField(name, { name = it }, label = { Text("Nome da estação") })
                 OutlinedTextField(locality, { locality = it }, label = { Text("Localidade (opcional)") })
@@ -1953,7 +2053,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     val id = savedId ?: EntityId.new().also { savedId = it }
                     scope.launch {
                         repository.save(Station(id, name, locality.ifBlank { null }, municipality = null, createdAt = Instant.now()))
-                        status = "Estação salva — ID preservado"
+                        status = "Estação salva — identificador preservado"
                     }
                 }) { Text("Salvar estação") }
                 Text("Referência rastreada")
@@ -1977,7 +2077,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                 }) { Text("Registrar referência") }
                 HorizontalDivider()
-                Text("Ocupação: ${occupation.state}")
+                Text("Ocupação: ${occupationStateLabel(occupation.state)}")
                 OutlinedTextField(durationMinutes, { value -> durationMinutes = value.filter(Char::isDigit); occupation = occupation.copy(plannedDurationSeconds = value.toLongOrNull()?.takeIf { it > 0 }?.times(60)) }, label = { Text("Tempo planejado (minutos, opcional)") })
                 val elapsedSeconds = occupation.confirmedStart?.let { start -> ((if (occupation.confirmedStop != null) occupation.confirmedStop!!.toEpochMilli() else nowEpochMillis) - start.toEpochMilli()).coerceAtLeast(0) / 1000 }
                 if (elapsedSeconds != null) {
@@ -2022,20 +2122,17 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 }) { Text("Associar receptor e antena") }
                 Button(enabled = occupation.state == OccupationState.DRAFT, onClick = {
                     val result = OccupationStateMachine.ready(occupation)
-                    if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_READY"); status = "READY confirmado — INICIAR está disponível" }
+                    if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_READY"); status = "Pronto confirmado — INICIAR está disponível" }
                     else {
                         if (occupation.referencePointId == null) newStep = 3
                         else if (!occupation.hasBeforeHeight) newStep = 5
-                        status = when (val error = (result as DomainResult.Failure).error) {
-                            is br.f21campo.domain.DomainError.InvalidValue -> "READY bloqueado: ${error.reason}. Use a etapa indicada para corrigir."
-                            else -> "READY bloqueado: verifique os dados da ocupação"
-                        }
+                        status = "Pronto bloqueado: ${domainFailureLabel((result as DomainResult.Failure).error)}. Use a etapa indicada para corrigir."
                     }
-                }) { Text("READY") }
+                }) { Text("PRONTO") }
                 if (occupation.state == OccupationState.DRAFT) {
-                    Text("Para READY: referência ${if (occupation.referencePointId != null) "OK" else "pendente"} · altura BEFORE ${if (occupation.hasBeforeHeight) "OK" else "pendente"}")
+                    Text("Para ficar pronto: referência ${if (occupation.referencePointId != null) "certo" else "pendente"} · altura antes ${if (occupation.hasBeforeHeight) "certo" else "pendente"}")
                     if (occupation.referencePointId == null) Button(onClick = { newStep = 3 }) { Text("IR PARA REFERÊNCIA") }
-                    if (!occupation.hasBeforeHeight) Button(onClick = { newStep = 5 }) { Text("IR PARA ALTURA BEFORE") }
+                    if (!occupation.hasBeforeHeight) Button(onClick = { newStep = 5 }) { Text("IR PARA ALTURA ANTES") }
                 }
                 Button(enabled = occupation.state == OccupationState.READY, onClick = { val result = OccupationStateMachine.start(occupation, Instant.now()); if (result is DomainResult.Success) { trackingTimeAlerted = false; occupation = result.value; recordAudit("OCCUPATION_STARTED"); route = "ACTIVE"; status = "Rastreio iniciado" } }) { Text("INICIAR") }
                 Button(enabled = occupation.state == OccupationState.ACTIVE, onClick = { val result = OccupationStateMachine.stop(occupation, Instant.now()); if (result is DomainResult.Success) { occupation = result.value; recordAudit("OCCUPATION_STOPPED"); route = "FINALIZATION"; status = "Rastreio parado — etapa de finalização" } }) { Text("PARAR") }
@@ -2056,57 +2153,57 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Tempo planejado: ${occupation.plannedDurationSeconds?.let { "${it / 60} min" } ?: "indefinido"}")
                     val beforeValues = before.mapNotNull(String::toDoubleOrNull).filter(Double::isFinite)
                     val afterValues = after.mapNotNull(String::toDoubleOrNull).filter(Double::isFinite)
-                    if (beforeValues.isNotEmpty()) Text("BEFORE: ${beforeValues.size} leitura(s), média ${"%.4f".format(beforeValues.average())} m, amplitude ${"%.4f".format(beforeValues.max() - beforeValues.min())} m")
-                    if (afterValues.isNotEmpty()) Text("AFTER: ${afterValues.size} leitura(s), média ${"%.4f".format(afterValues.average())} m, amplitude ${"%.4f".format(afterValues.max() - afterValues.min())} m")
+                    if (beforeValues.isNotEmpty()) Text("ANTES: ${beforeValues.size} leitura(s), média ${"%.4f".format(beforeValues.average())} m, amplitude ${"%.4f".format(beforeValues.max() - beforeValues.min())} m")
+                    if (afterValues.isNotEmpty()) Text("DEPOIS: ${afterValues.size} leitura(s), média ${"%.4f".format(afterValues.average())} m, amplitude ${"%.4f".format(afterValues.max() - afterValues.min())} m")
                     if (beforeValues.isNotEmpty() && afterValues.isNotEmpty()) Text("Delta das médias: ${"%.4f".format(afterValues.average() - beforeValues.average())} m")
                 }
-                Text("Alturas BEFORE")
-                Text("Unidade BEFORE: ${beforeUnit ?: "não selecionada"}")
+                Text("Alturas antes")
+                Text("Unidade antes: ${beforeUnit ?: "não selecionada"}")
                 heightUnitHint(before, beforeUnit)?.let { Text(it, color = fieldBlueDark) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
-                Text("Tipo BEFORE: ${beforeType.name}", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { beforeType = type }, enabled = beforeType != type) { Text(type.name) } } }
+                Text("Tipo antes: ${heightTypeLabel(beforeType)}", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { beforeType = type }, enabled = beforeType != type) { Text(heightTypeLabel(type)) } } }
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }
+                    Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ ANTES") }
                     Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }
                     Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") }
                 }
                 Button(onClick = {
                     val validBefore = before.mapNotNull { it.toDoubleOrNull() }.firstOrNull { it.isFinite() }?.let { heightToMeters(it, beforeUnit) }
                     if (beforeUnit == null) {
-                        status = heightUnitHint(before, beforeUnit) ?: "Confirme a unidade da altura BEFORE"
+                        status = heightUnitHint(before, beforeUnit) ?: "Confirme a unidade da altura antes do rastreio"
                     } else if (validBefore != null) {
                         occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = validBefore)
                         scope.launch {
                             repository.replaceHeights(occupation.id, HeightPhase.BEFORE, before.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }.map { value -> HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, beforeType, Instant.now(), "unit=${beforeUnit}") })
                             recordAudit("HEIGHT_BEFORE_RECORDED")
-                            status = "${before.count { it.toDoubleOrNull() != null }} altura(s) BEFORE registrada(s)"
+                            status = "${before.count { it.toDoubleOrNull() != null }} altura(s) de antes registrada(s)"
                         }
                     } else {
-                        status = "Informe ao menos uma altura BEFORE válida"
+                        status = "Informe pelo menos uma altura válida antes do rastreio"
                     }
-                }) { Text("Registrar altura BEFORE") }
-                Text("Alturas AFTER")
-                Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
+                }) { Text("Registrar altura antes") }
+                Text("Alturas depois")
+                Text("Unidade depois: ${afterUnit ?: "não selecionada"}")
                 heightUnitHint(after, afterUnit)?.let { Text(it, color = fieldBlueDark) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) } } }
-                Text("Tipo AFTER: ${afterType.name}", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { afterType = type }, enabled = afterType != type) { Text(type.name) } } }
+                Text("Tipo depois: ${heightTypeLabel(afterType)}", style = MaterialTheme.typography.labelLarge)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { afterType = type }, enabled = afterType != type) { Text(heightTypeLabel(type)) } } }
                 after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ AFTER") }
+                    Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ DEPOIS") }
                     Button(enabled = after.size > 1, onClick = { afterUndo = afterUndo + listOf(after); after = after.dropLast(1) }) { Text("−") }
                     Button(enabled = afterUndo.isNotEmpty(), onClick = { after = afterUndo.last(); afterUndo = afterUndo.dropLast(1) }) { Text("DESFAZER") }
                 }
                 Button(onClick = {
                     val values = after.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }
-                    if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura AFTER" else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida" else scope.launch {
+                    if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura depois do rastreio" else if (values.isEmpty()) status = "Informe pelo menos uma altura válida depois do rastreio" else scope.launch {
                         repository.replaceHeights(occupation.id, HeightPhase.AFTER, values.map { value -> HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, afterType, Instant.now(), "unit=${afterUnit}") })
                         recordAudit("HEIGHT_AFTER_RECORDED")
-                        status = "${values.size} altura(s) AFTER registrada(s)"
+                        status = "${values.size} altura(s) de depois registrada(s)"
                     }
-                }) { Text("Registrar alturas AFTER") }
+                }) { Text("Registrar alturas depois") }
                 EventCaptureControls(eventCategory, { eventCategory = it }, eventSeverity, { eventSeverity = it }, fieldBlueDark)
                 OutlinedTextField(event, { event = it }, label = { Text("Evento de campo") })
                 Button(onClick = {

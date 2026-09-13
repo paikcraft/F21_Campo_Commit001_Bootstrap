@@ -29,7 +29,7 @@ class ManualReceiverConnection : ReceiverConnection {
         status = ReceiverConnectionStatus(
             state = ReceiverConnectionState.FAILED,
             endpoint = endpoint.ifBlank { null },
-            message = "Perfil salvo para bancada; protocolo/porta/framing ainda não homologados",
+            message = "Perfil salvo para bancada; protocolo, porta e estrutura das mensagens ainda não homologados",
         )
         return status
     }

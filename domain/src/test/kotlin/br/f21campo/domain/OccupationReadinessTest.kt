@@ -9,7 +9,7 @@ class OccupationReadinessTest {
     fun emptyChecklistReportsEveryRequiredField() {
         val missing = OccupationReadiness.missing(ReadinessInput("", "", "", false, false, false))
         assertEquals(
-            listOf("projeto/LH", "nome da estação", "localidade", "referência RN/MT/PA", "equipamento", "altura BEFORE"),
+            listOf("projeto/LH", "nome da estação", "localidade", "referência RN/MT/PA", "equipamento", "altura antes do rastreio"),
             missing,
         )
     }
