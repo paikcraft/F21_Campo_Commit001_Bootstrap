@@ -35,7 +35,7 @@ class RoomMigrationTest {
             close()
         }
 
-        val migrated = helper.runMigrationsAndValidate("migration-test", 15, true, *Migrations.ALL)
+        val migrated = helper.runMigrationsAndValidate("migration-test", 17, true, *Migrations.ALL)
         migrated.query("SELECT name FROM projects WHERE id = 'p1'").use { cursor ->
             check(cursor.moveToFirst())
             assertEquals("Comissão 1", cursor.getString(0))
@@ -43,6 +43,21 @@ class RoomMigrationTest {
         migrated.query("SELECT municipality FROM stations WHERE id = 's1'").use { cursor ->
             check(cursor.moveToFirst())
             check(cursor.isNull(0))
+        }
+        migrated.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'receiver_catalog'").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals("receiver_catalog", cursor.getString(0))
+        }
+        migrated.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'antenna_catalog'").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals("antenna_catalog", cursor.getString(0))
+        }
+        migrated.query("PRAGMA table_info(occupations)").use { cursor ->
+            var found = false
+            while (cursor.moveToNext()) {
+                if (cursor.getString(1) == "receiverFirmware") found = true
+            }
+            assertEquals(true, found)
         }
         migrated.close()
     }
@@ -83,6 +98,21 @@ class RoomMigrationTest {
         database.stationDao().archive("station-1", 20L)
         assertNull(database.stationDao().findActiveByIdentity("RN 01", "Manaus"))
         assertNotNull(database.stationDao().findById("station-1"))
+
+        database.receiverCatalogDao().upsert(
+            ReceiverCatalogEntity("receiver-1", "Spectra", "S900", "rx-1", "fw-1", 21L, null),
+        )
+        database.antennaCatalogDao().upsert(
+            AntennaCatalogEntity("antenna-1", "Spectra", "ASH801", "ant-1", 22L, null),
+        )
+        assertEquals("S900", database.receiverCatalogDao().findActive().single().model)
+        assertEquals("ASH801", database.antennaCatalogDao().findActive().single().model)
+        database.receiverCatalogDao().archive("receiver-1", 23L)
+        database.antennaCatalogDao().archive("antenna-1", 24L)
+        assertEquals(0, database.receiverCatalogDao().findActive().size)
+        assertEquals(0, database.antennaCatalogDao().findActive().size)
+        assertNotNull(database.receiverCatalogDao().findById("receiver-1"))
+        assertNotNull(database.antennaCatalogDao().findById("antenna-1"))
         database.close()
         context.deleteDatabase(name)
     }
@@ -114,6 +144,7 @@ class RoomMigrationTest {
                 antennaManufacturer = "Spectra",
                 receiverSerial = "rx-1",
                 antennaSerial = "ant-1",
+                receiverFirmware = "fw-1",
                 hasBeforeHeight = true,
                 beforeHeightMeters = 1.234,
             ),
@@ -130,11 +161,60 @@ class RoomMigrationTest {
         assertEquals("ACTIVE", occupation?.state)
         assertEquals("r1", occupation?.referencePointId)
         assertEquals("S900", occupation?.receiverModel)
+        assertEquals("fw-1", occupation?.receiverFirmware)
         assertEquals(1.234, occupation?.beforeHeightMeters ?: 0.0, 0.000001)
         assertEquals(1, second.heightMeasurementDao().findByOccupation("o1").size)
         assertEquals("observado", second.occupationEventDao().findByOccupation("o1").single().description)
         assertEquals("sha-a1", second.occupationArtifactDao().findByOccupation("o1").single().sha256)
         second.close()
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun equipmentCatalogEditsDoNotRewriteOccupationSnapshot() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "equipment-snapshot-${System.currentTimeMillis()}.db"
+        val database = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        database.receiverCatalogDao().upsert(
+            ReceiverCatalogEntity("receiver-1", "Spectra", "S900", "rx-1", "fw-1", 1L, null),
+        )
+        database.antennaCatalogDao().upsert(
+            AntennaCatalogEntity("antenna-1", "Spectra", "ASH801", "ant-1", 2L, null),
+        )
+        database.occupationDao().upsert(
+            OccupationEntity(
+                id = "occupation-1",
+                projectId = "project-1",
+                stationId = "station-1",
+                referencePointId = null,
+                plannedDurationSeconds = null,
+                state = "DRAFT",
+                plannedStartEpochMillis = null,
+                confirmedStartEpochMillis = null,
+                confirmedStopEpochMillis = null,
+                receiverModel = "S900",
+                antennaModel = "ASH801",
+                receiverManufacturer = "Spectra",
+                antennaManufacturer = "Spectra",
+                receiverSerial = "rx-1",
+                antennaSerial = "ant-1",
+                receiverFirmware = "fw-1",
+                hasBeforeHeight = false,
+                beforeHeightMeters = null,
+            ),
+        )
+        database.receiverCatalogDao().upsert(
+            ReceiverCatalogEntity("receiver-1", "Other", "R2", "rx-2", "fw-2", 1L, null),
+        )
+        database.antennaCatalogDao().archive("antenna-1", 3L)
+        val snapshot = database.occupationDao().findById("occupation-1")
+        assertEquals("S900", snapshot?.receiverModel)
+        assertEquals("ASH801", snapshot?.antennaModel)
+        assertEquals("rx-1", snapshot?.receiverSerial)
+        assertEquals("ant-1", snapshot?.antennaSerial)
+        database.close()
         context.deleteDatabase(name)
     }
 }

@@ -80,3 +80,19 @@ interface ReceiverConnectionProfileDao {
     @Query("SELECT * FROM receiver_connection_profiles WHERE isFavorite = 1 ORDER BY savedAtEpochMillis DESC")
     suspend fun findFavorites(): List<ReceiverConnectionProfileEntity>
 }
+
+@Dao
+interface ReceiverCatalogDao {
+    @Upsert suspend fun upsert(receiver: ReceiverCatalogEntity)
+    @Query("SELECT * FROM receiver_catalog WHERE archivedAtEpochMillis IS NULL ORDER BY createdAtEpochMillis DESC") suspend fun findActive(): List<ReceiverCatalogEntity>
+    @Query("SELECT * FROM receiver_catalog WHERE id = :id") suspend fun findById(id: String): ReceiverCatalogEntity?
+    @Query("UPDATE receiver_catalog SET archivedAtEpochMillis = :archivedAtEpochMillis WHERE id = :id") suspend fun archive(id: String, archivedAtEpochMillis: Long)
+}
+
+@Dao
+interface AntennaCatalogDao {
+    @Upsert suspend fun upsert(antenna: AntennaCatalogEntity)
+    @Query("SELECT * FROM antenna_catalog WHERE archivedAtEpochMillis IS NULL ORDER BY createdAtEpochMillis DESC") suspend fun findActive(): List<AntennaCatalogEntity>
+    @Query("SELECT * FROM antenna_catalog WHERE id = :id") suspend fun findById(id: String): AntennaCatalogEntity?
+    @Query("UPDATE antenna_catalog SET archivedAtEpochMillis = :archivedAtEpochMillis WHERE id = :id") suspend fun archive(id: String, archivedAtEpochMillis: Long)
+}

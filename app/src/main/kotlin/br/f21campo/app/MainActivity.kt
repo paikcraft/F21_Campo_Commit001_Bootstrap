@@ -77,6 +77,8 @@ import br.f21campo.domain.HeightMeasurement
 import br.f21campo.domain.TrackingTimer
 import br.f21campo.domain.OccupationReadiness
 import br.f21campo.domain.ReadinessInput
+import br.f21campo.domain.ReceiverCatalogItem
+import br.f21campo.domain.AntennaCatalogItem
 import br.f21campo.receiver.api.ReceiverTransportType
 import br.f21campo.receiver.api.ReceiverConnectionProfile
 import br.f21campo.receiver.api.TcpReceiverTransport
@@ -206,7 +208,23 @@ class MainActivity : ComponentActivity() {
         val database = Room.databaseBuilder(applicationContext, F21Database::class.java, "f21.db")
             .addMigrations(*Migrations.ALL)
             .build()
-        setContent { StationScreen(ProjectStationRepository(database.projectDao(), database.stationDao(), database.referencePointDao(), database.occupationDao(), database.occupationArtifactDao(), database.occupationEventDao(), database.heightMeasurementDao(), database.receiverConnectionProfileDao(), database)) }
+        setContent {
+            StationScreen(
+                ProjectStationRepository(
+                    database.projectDao(),
+                    database.stationDao(),
+                    database.referencePointDao(),
+                    database.occupationDao(),
+                    database.occupationArtifactDao(),
+                    database.occupationEventDao(),
+                    database.heightMeasurementDao(),
+                    database.receiverConnectionProfileDao(),
+                    database,
+                    database.receiverCatalogDao(),
+                    database.antennaCatalogDao(),
+                ),
+            )
+        }
     }
 }
 
@@ -225,6 +243,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var receiverModel by remember { mutableStateOf("") }
     var antennaModel by remember { mutableStateOf("") }
     var receiverManufacturer by remember { mutableStateOf("") }
+    var receiverFirmware by remember { mutableStateOf("") }
     var antennaManufacturer by remember { mutableStateOf("") }
     var receiverSerial by remember { mutableStateOf("") }
     var antennaSerial by remember { mutableStateOf("") }
@@ -282,6 +301,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var connectionStatus by remember { mutableStateOf("Nenhum perfil de conexão testado") }
     var connectionProfiles by remember { mutableStateOf(emptyList<ReceiverConnectionProfile>()) }
     var favoriteReceiverProfiles by remember { mutableStateOf(emptyList<ReceiverConnectionProfile>()) }
+    var receiverCatalog by remember { mutableStateOf(emptyList<ReceiverCatalogItem>()) }
+    var antennaCatalog by remember { mutableStateOf(emptyList<AntennaCatalogItem>()) }
+    var selectedReceiverCatalogId by remember { mutableStateOf<EntityId?>(null) }
+    var selectedAntennaCatalogId by remember { mutableStateOf<EntityId?>(null) }
     val manualConnection = remember { ManualReceiverConnection() }
     val tcpTransport = remember { TcpReceiverTransport() }
     var nowEpochMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -416,6 +439,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         receiverModel = pending.equipment?.receiver?.model.orEmpty()
         receiverManufacturer = pending.equipment?.receiver?.manufacturer.orEmpty()
         receiverSerial = pending.equipment?.receiver?.serialNumber.orEmpty()
+        receiverFirmware = pending.equipment?.receiver?.firmware.orEmpty()
         antennaModel = pending.equipment?.antenna?.model.orEmpty()
         antennaManufacturer = pending.equipment?.antenna?.manufacturer.orEmpty()
         antennaSerial = pending.equipment?.antenna?.serialNumber.orEmpty()
@@ -468,6 +492,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         receiverModel = ""
         antennaModel = ""
         receiverManufacturer = ""
+        receiverFirmware = ""
         antennaManufacturer = ""
         receiverSerial = ""
         antennaSerial = ""
@@ -484,6 +509,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
         rawImported = false
         rawSummary = null
         durationMinutes = ""
+        selectedReceiverCatalogId = null
+        selectedAntennaCatalogId = null
         trackingTimeAlerted = false
         route = "NEW"
         newStep = 1
@@ -537,6 +564,12 @@ private fun StationScreen(repository: ProjectStationRepository) {
         }
         if (route == "NEW" && newStep == 4) {
             favoriteReceiverProfiles = repository.findFavoriteReceiverProfiles()
+            receiverCatalog = repository.findActiveReceiverCatalog()
+            antennaCatalog = repository.findActiveAntennaCatalog()
+        }
+        if (route == "EQUIPMENT") {
+            receiverCatalog = repository.findActiveReceiverCatalog()
+            antennaCatalog = repository.findActiveAntennaCatalog()
         }
         if (route == "CONNECTION") {
             connectionProfiles = repository.findConnectionProfiles()
@@ -568,6 +601,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         "PROJECTS" -> "Projetos"
                         "STATIONS" -> "Banco de estações"
                         "CONNECTION" -> "Conexão de bancada"
+                        "EQUIPMENT" -> "Catálogo de equipamentos"
                         "SETTINGS" -> "Configurações"
                         "ABOUT" -> "Sobre"
                         "SUMMARY" -> "Resumo do rastreio"
@@ -809,6 +843,121 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Text("Modo: ${BuildConfig.BUILD_MODE}")
                     Text("O aplicativo funciona offline e registra a origem manual dos equipamentos.")
                     Button(onClick = { route = "CONNECTION" }, modifier = Modifier.fillMaxWidth()) { Text("CONEXÃO DE BANCADA") }
+                    Button(onClick = { route = "EQUIPMENT" }, modifier = Modifier.fillMaxWidth()) { Text("CATÁLOGO DE EQUIPAMENTOS") }
+                } else if (route == "EQUIPMENT") {
+                    Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("CATÁLOGO DE EQUIPAMENTOS", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                            Text("Receptor e antena são catálogos manuais independentes. Editar um item não altera snapshots de ocupações antigas.", color = Color(0xFFD5EAF5))
+                        }
+                    }
+                    Button(onClick = { route = "HOME"; showHome = true }, modifier = Modifier.fillMaxWidth()) { Text("← INÍCIO") }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("RECEPTOR GNSS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Número de série") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(receiverFirmware, { receiverFirmware = it }, label = { Text("Firmware (se informado)") }, modifier = Modifier.fillMaxWidth())
+                            Button(onClick = {
+                                scope.launch {
+                                    val item = ReceiverCatalogItem(
+                                        id = selectedReceiverCatalogId ?: EntityId.new(),
+                                        manufacturer = receiverManufacturer.trim().ifBlank { null },
+                                        model = receiverModel.trim().ifBlank { null },
+                                        serialNumber = receiverSerial.trim().ifBlank { null },
+                                        firmware = receiverFirmware.trim().ifBlank { null },
+                                        createdAt = receiverCatalog.firstOrNull { it.id == selectedReceiverCatalogId }?.createdAt ?: Instant.now(),
+                                    )
+                                    repository.saveReceiverCatalog(item)
+                                    receiverCatalog = repository.findActiveReceiverCatalog()
+                                    selectedReceiverCatalogId = item.id
+                                    status = "Receptor salvo no catálogo local"
+                                }
+                            }, enabled = listOf(receiverManufacturer, receiverModel, receiverSerial, receiverFirmware).any { it.isNotBlank() }, modifier = Modifier.fillMaxWidth()) {
+                                Text(if (selectedReceiverCatalogId == null) "SALVAR RECEPTOR" else "ATUALIZAR RECEPTOR")
+                            }
+                            if (receiverCatalog.isEmpty()) Text("Nenhum receptor cadastrado")
+                            receiverCatalog.forEach { item ->
+                                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF3F8)), modifier = Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(listOfNotNull(item.manufacturer, item.model).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "), color = fieldBlueDark)
+                                        Text(listOfNotNull(item.serialNumber?.let { "S/N $it" }, item.firmware?.let { "FW $it" }).joinToString(" · ").ifBlank { "Sem serial/firmware informado" }, style = MaterialTheme.typography.bodySmall)
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedButton(onClick = {
+                                                selectedReceiverCatalogId = item.id
+                                                receiverManufacturer = item.manufacturer.orEmpty()
+                                                receiverModel = item.model.orEmpty()
+                                                receiverSerial = item.serialNumber.orEmpty()
+                                                receiverFirmware = item.firmware.orEmpty()
+                                                status = "Receptor selecionado para edição"
+                                            }, modifier = Modifier.weight(1f)) { Text("EDITAR") }
+                                            OutlinedButton(onClick = {
+                                                scope.launch {
+                                                    repository.archiveReceiverCatalog(item.id)
+                                                    receiverCatalog = repository.findActiveReceiverCatalog()
+                                                    if (selectedReceiverCatalogId == item.id) selectedReceiverCatalogId = null
+                                                    status = "Receptor arquivado; ocupações antigas preservadas"
+                                                }
+                                            }, modifier = Modifier.weight(1f)) { Text("ARQUIVAR") }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("ANTENA", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            OutlinedTextField(antennaManufacturer, { antennaManufacturer = it }, label = { Text("Fabricante") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo") }, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Número de série") }, modifier = Modifier.fillMaxWidth())
+                            Button(onClick = {
+                                scope.launch {
+                                    val item = AntennaCatalogItem(
+                                        id = selectedAntennaCatalogId ?: EntityId.new(),
+                                        manufacturer = antennaManufacturer.trim().ifBlank { null },
+                                        model = antennaModel.trim().ifBlank { null },
+                                        serialNumber = antennaSerial.trim().ifBlank { null },
+                                        createdAt = antennaCatalog.firstOrNull { it.id == selectedAntennaCatalogId }?.createdAt ?: Instant.now(),
+                                    )
+                                    repository.saveAntennaCatalog(item)
+                                    antennaCatalog = repository.findActiveAntennaCatalog()
+                                    selectedAntennaCatalogId = item.id
+                                    status = "Antena salva no catálogo local"
+                                }
+                            }, enabled = listOf(antennaManufacturer, antennaModel, antennaSerial).any { it.isNotBlank() }, modifier = Modifier.fillMaxWidth()) {
+                                Text(if (selectedAntennaCatalogId == null) "SALVAR ANTENA" else "ATUALIZAR ANTENA")
+                            }
+                            if (antennaCatalog.isEmpty()) Text("Nenhuma antena cadastrada")
+                            antennaCatalog.forEach { item ->
+                                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFEAF3F8)), modifier = Modifier.fillMaxWidth()) {
+                                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Text(listOfNotNull(item.manufacturer, item.model).ifEmpty { listOf("Antena sem identificação") }.joinToString(" · "), color = fieldBlueDark)
+                                        Text(item.serialNumber?.let { "S/N $it" } ?: "Sem número de série informado", style = MaterialTheme.typography.bodySmall)
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            OutlinedButton(onClick = {
+                                                selectedAntennaCatalogId = item.id
+                                                antennaManufacturer = item.manufacturer.orEmpty()
+                                                antennaModel = item.model.orEmpty()
+                                                antennaSerial = item.serialNumber.orEmpty()
+                                                status = "Antena selecionada para edição"
+                                            }, modifier = Modifier.weight(1f)) { Text("EDITAR") }
+                                            OutlinedButton(onClick = {
+                                                scope.launch {
+                                                    repository.archiveAntennaCatalog(item.id)
+                                                    antennaCatalog = repository.findActiveAntennaCatalog()
+                                                    if (selectedAntennaCatalogId == item.id) selectedAntennaCatalogId = null
+                                                    status = "Antena arquivada; ocupações antigas preservadas"
+                                                }
+                                            }, modifier = Modifier.weight(1f)) { Text("ARQUIVAR") }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Text(status)
                 } else if (route == "CONNECTION") {
                     Card(colors = CardDefaults.cardColors(containerColor = fieldBlueDark), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1251,13 +1400,78 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             }
                         }
                     }
+                    if (receiverCatalog.isNotEmpty() || antennaCatalog.isNotEmpty()) {
+                        Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("CATÁLOGO MANUAL", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                Text("Selecione um equipamento já cadastrado. Esses dados são informados pelo operador e serão copiados para o snapshot desta ocupação.")
+                                receiverCatalog.forEach { item ->
+                                    OutlinedButton(onClick = {
+                                        selectedReceiverCatalogId = item.id
+                                        receiverManufacturer = item.manufacturer.orEmpty()
+                                        receiverModel = item.model.orEmpty()
+                                        receiverSerial = item.serialNumber.orEmpty()
+                                        receiverFirmware = item.firmware.orEmpty()
+                                        status = "Receptor do catálogo selecionado"
+                                    }, modifier = Modifier.fillMaxWidth()) {
+                                        Text(listOfNotNull(item.manufacturer, item.model, item.serialNumber?.let { "S/N $it" }).ifEmpty { listOf("Receptor sem identificação") }.joinToString(" · "))
+                                    }
+                                }
+                                antennaCatalog.forEach { item ->
+                                    OutlinedButton(onClick = {
+                                        selectedAntennaCatalogId = item.id
+                                        antennaManufacturer = item.manufacturer.orEmpty()
+                                        antennaModel = item.model.orEmpty()
+                                        antennaSerial = item.serialNumber.orEmpty()
+                                        status = "Antena do catálogo selecionada"
+                                    }, modifier = Modifier.fillMaxWidth()) {
+                                        Text(listOfNotNull(item.manufacturer, item.model, item.serialNumber?.let { "S/N $it" }).ifEmpty { listOf("Antena sem identificação") }.joinToString(" · "))
+                                    }
+                                }
+                            }
+                        }
+                    }
                     OutlinedTextField(receiverModel, { receiverModel = it }, label = { Text("Modelo do receptor") })
                     OutlinedTextField(receiverManufacturer, { receiverManufacturer = it }, label = { Text("Fabricante do receptor") })
                     OutlinedTextField(receiverSerial, { receiverSerial = it }, label = { Text("Nº de série do receptor") })
+                    OutlinedTextField(receiverFirmware, { receiverFirmware = it }, label = { Text("Firmware do receptor (se informado)") })
                     OutlinedTextField(antennaModel, { antennaModel = it }, label = { Text("Modelo da antena") })
                     OutlinedTextField(antennaManufacturer, { antennaManufacturer = it }, label = { Text("Fabricante da antena") })
                     OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Nº de série da antena") })
-                    Button(onClick = { val receiver = Receiver(EntityId.new(), receiverManufacturer.ifBlank { null }, receiverModel.ifBlank { "manual" }, receiverSerial.ifBlank { null }); val antenna = Antenna(EntityId.new(), antennaManufacturer.ifBlank { null }, antennaModel.ifBlank { "manual" }, antennaSerial.ifBlank { null }); val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna); if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado"; newStep = 5 } }) { Text("ASSOCIAR E AVANÇAR") }
+                    Button(onClick = { val receiver = Receiver(EntityId.new(), receiverManufacturer.ifBlank { null }, receiverModel.ifBlank { "manual" }, receiverSerial.ifBlank { null }, firmware = receiverFirmware.ifBlank { null }); val antenna = Antenna(EntityId.new(), antennaManufacturer.ifBlank { null }, antennaModel.ifBlank { "manual" }, antennaSerial.ifBlank { null }); val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna); if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado"; newStep = 5 } }) { Text("ASSOCIAR E AVANÇAR") }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = {
+                            scope.launch {
+                                val item = ReceiverCatalogItem(
+                                    id = selectedReceiverCatalogId ?: EntityId.new(),
+                                    manufacturer = receiverManufacturer.trim().ifBlank { null },
+                                    model = receiverModel.trim().ifBlank { null },
+                                    serialNumber = receiverSerial.trim().ifBlank { null },
+                                    firmware = receiverFirmware.trim().ifBlank { null },
+                                    createdAt = receiverCatalog.firstOrNull { it.id == selectedReceiverCatalogId }?.createdAt ?: Instant.now(),
+                                )
+                                repository.saveReceiverCatalog(item)
+                                receiverCatalog = repository.findActiveReceiverCatalog()
+                                selectedReceiverCatalogId = item.id
+                                status = "Receptor salvo no catálogo manual"
+                            }
+                        }, modifier = Modifier.weight(1f)) { Text("SALVAR RECEPTOR") }
+                        OutlinedButton(onClick = {
+                            scope.launch {
+                                val item = AntennaCatalogItem(
+                                    id = selectedAntennaCatalogId ?: EntityId.new(),
+                                    manufacturer = antennaManufacturer.trim().ifBlank { null },
+                                    model = antennaModel.trim().ifBlank { null },
+                                    serialNumber = antennaSerial.trim().ifBlank { null },
+                                    createdAt = antennaCatalog.firstOrNull { it.id == selectedAntennaCatalogId }?.createdAt ?: Instant.now(),
+                                )
+                                repository.saveAntennaCatalog(item)
+                                antennaCatalog = repository.findActiveAntennaCatalog()
+                                selectedAntennaCatalogId = item.id
+                                status = "Antena salva no catálogo manual"
+                            }
+                        }, modifier = Modifier.weight(1f)) { Text("SALVAR ANTENA") }
+                    }
                     Button(onClick = { route = "CONNECTION" }, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAR CONEXÃO DE BANCADA") }
                     Text("Origem: informado pelo operador")
                     Text(status)
@@ -1547,7 +1761,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 OutlinedTextField(antennaSerial, { antennaSerial = it }, label = { Text("Nº de série da antena") })
                 Text("Origem do equipamento: informado pelo operador")
                 Button(onClick = {
-                    val receiver = Receiver(EntityId.new(), manufacturer = receiverManufacturer.ifBlank { null }, model = receiverModel.ifBlank { "manual" }, serialNumber = receiverSerial.ifBlank { null })
+                    val receiver = Receiver(EntityId.new(), manufacturer = receiverManufacturer.ifBlank { null }, model = receiverModel.ifBlank { "manual" }, serialNumber = receiverSerial.ifBlank { null }, firmware = receiverFirmware.ifBlank { null })
                     val antenna = Antenna(EntityId.new(), manufacturer = antennaManufacturer.ifBlank { null }, model = antennaModel.ifBlank { "manual" }, serialNumber = antennaSerial.ifBlank { null })
                     val result = ManualEquipment.attachSnapshot(occupation, receiver, antenna)
                     if (result is DomainResult.Success) { occupation = result.value; status = "Equipamento associado" }

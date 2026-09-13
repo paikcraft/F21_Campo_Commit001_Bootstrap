@@ -31,7 +31,7 @@ class DatabaseExchangeTest {
             projects = listOf(ProjectEntity("p1", "Comissão 1", 1L, null)),
             stations = listOf(StationEntity("s1", "Estação A", "Manaus", null, 2L, null)),
             referencePoints = listOf(ReferencePointEntity("r1", "s1", "RN", "RN-01", null, "campo")),
-            occupations = listOf(OccupationEntity("o1", "p1", "s1", "r1", 1200L, "STOPPED", 3L, 4L, 5L, "S900", "ASH801", "Spectra", "Spectra", "rx", "ant", true, 1.234)),
+            occupations = listOf(OccupationEntity("o1", "p1", "s1", "r1", 1200L, "STOPPED", 3L, 4L, 5L, "S900", "ASH801", "Spectra", "Spectra", "rx", "ant", "fw-1", true, 1.234)),
             heightMeasurements = listOf(HeightMeasurementEntity("h1", "o1", "BEFORE", 1.234, "VERTICAL", 6L, null)),
             events = listOf(OccupationEventEntity("e1", "o1", 7L, "NOTE", "INFO", "ok", "OPERATOR")),
             artifacts = listOf(OccupationArtifactEntity("a1", "o1", "RAW_RECEIVER", "raw.bin", 8L, "abc", 9L)),
@@ -43,7 +43,7 @@ class DatabaseExchangeTest {
 
     @Test
     fun migrationChainIsContiguousFromOneToCurrent() {
-        assertEquals((1..14).toList(), Migrations.ALL.map { it.startVersion })
-        assertEquals((2..15).toList(), Migrations.ALL.map { it.endVersion })
+        assertEquals((1..16).toList(), Migrations.ALL.map { it.startVersion })
+        assertEquals((2..17).toList(), Migrations.ALL.map { it.endVersion })
     }
 }

@@ -98,6 +98,21 @@ object Migrations {
         }
     }
 
+    val V15_TO_V16 = object : Migration(15, 16) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE TABLE IF NOT EXISTS receiver_catalog (id TEXT NOT NULL PRIMARY KEY, manufacturer TEXT, model TEXT, serialNumber TEXT, firmware TEXT, createdAtEpochMillis INTEGER NOT NULL, archivedAtEpochMillis INTEGER)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_receiver_catalog_createdAtEpochMillis ON receiver_catalog(createdAtEpochMillis)")
+            database.execSQL("CREATE TABLE IF NOT EXISTS antenna_catalog (id TEXT NOT NULL PRIMARY KEY, manufacturer TEXT, model TEXT, serialNumber TEXT, createdAtEpochMillis INTEGER NOT NULL, archivedAtEpochMillis INTEGER)")
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_antenna_catalog_createdAtEpochMillis ON antenna_catalog(createdAtEpochMillis)")
+        }
+    }
+
+    val V16_TO_V17 = object : Migration(16, 17) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE occupations ADD COLUMN receiverFirmware TEXT")
+        }
+    }
+
     val ALL = arrayOf(
         V1_TO_V2,
         V2_TO_V3,
@@ -113,5 +128,7 @@ object Migrations {
         V12_TO_V13,
         V13_TO_V14,
         V14_TO_V15,
+        V15_TO_V16,
+        V16_TO_V17,
     )
 }

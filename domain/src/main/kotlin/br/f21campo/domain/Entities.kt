@@ -24,6 +24,7 @@ data class Receiver(
     val model: String? = null,
     val serialNumber: String? = null,
     val source: ProvenanceSource = ProvenanceSource.OPERATOR,
+    val firmware: String? = null,
 )
 
 data class Antenna(

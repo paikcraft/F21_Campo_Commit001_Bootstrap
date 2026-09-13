@@ -7,6 +7,8 @@ import br.f21campo.domain.Project
 import br.f21campo.domain.Station
 import br.f21campo.domain.ReferencePoint
 import br.f21campo.domain.ReferencePointType
+import br.f21campo.domain.ReceiverCatalogItem
+import br.f21campo.domain.AntennaCatalogItem
 import br.f21campo.domain.Occupation
 import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.HeightMeasurement
@@ -41,6 +43,8 @@ class ProjectStationRepository(
     private val heightDao: HeightMeasurementDao? = null,
     private val connectionProfileDao: ReceiverConnectionProfileDao? = null,
     private val database: F21Database? = null,
+    private val receiverCatalogDao: ReceiverCatalogDao? = null,
+    private val antennaCatalogDao: AntennaCatalogDao? = null,
 ) {
     suspend fun importCoreExchange(envelope: DatabaseExchangeEnvelope): Result<DatabaseImportSummary> {
         envelope.validate().getOrElse { return Result.failure(it) }
@@ -251,4 +255,34 @@ class ProjectStationRepository(
                 notes = it.notes,
             )
         }.orEmpty()
+
+    suspend fun findActiveReceiverCatalog(): List<ReceiverCatalogItem> =
+        receiverCatalogDao?.findActive()?.map(ReceiverCatalogEntity::toDomain).orEmpty()
+
+    suspend fun findActiveAntennaCatalog(): List<AntennaCatalogItem> =
+        antennaCatalogDao?.findActive()?.map(AntennaCatalogEntity::toDomain).orEmpty()
+
+    suspend fun saveReceiverCatalog(item: ReceiverCatalogItem): DomainResult<Unit> {
+        val dao = receiverCatalogDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("receiverCatalog", "DAO not configured"))
+        dao.upsert(item.toEntity())
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun saveAntennaCatalog(item: AntennaCatalogItem): DomainResult<Unit> {
+        val dao = antennaCatalogDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("antennaCatalog", "DAO not configured"))
+        dao.upsert(item.toEntity())
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun archiveReceiverCatalog(id: EntityId, archivedAt: Instant = Instant.now()): DomainResult<Unit> {
+        val dao = receiverCatalogDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("receiverCatalog", "DAO not configured"))
+        dao.archive(id.value, archivedAt.toEpochMilli())
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun archiveAntennaCatalog(id: EntityId, archivedAt: Instant = Instant.now()): DomainResult<Unit> {
+        val dao = antennaCatalogDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("antennaCatalog", "DAO not configured"))
+        dao.archive(id.value, archivedAt.toEpochMilli())
+        return DomainResult.Success(Unit)
+    }
 }
