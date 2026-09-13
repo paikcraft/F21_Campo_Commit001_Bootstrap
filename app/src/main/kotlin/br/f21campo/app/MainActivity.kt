@@ -75,6 +75,8 @@ import br.f21campo.domain.OccupationEventCategory
 import br.f21campo.domain.EventSeverity
 import br.f21campo.domain.HeightMeasurement
 import br.f21campo.domain.TrackingTimer
+import br.f21campo.domain.OccupationReadiness
+import br.f21campo.domain.ReadinessInput
 import br.f21campo.receiver.api.ReceiverTransportType
 import br.f21campo.receiver.api.ReceiverConnectionProfile
 import br.f21campo.receiver.api.TcpReceiverTransport
@@ -131,22 +133,6 @@ private fun heightStatistics(values: List<HeightMeasurement>): HeightStatistics?
         meanMeters = measurements.average(),
         rangeMeters = measurements.max() - measurements.min(),
     )
-}
-
-private fun readinessMissingItems(
-    projectName: String,
-    stationName: String,
-    locality: String,
-    hasReference: Boolean,
-    hasEquipment: Boolean,
-    hasBeforeHeight: Boolean,
-): List<String> = buildList {
-    if (projectName.isBlank()) add("projeto/LH")
-    if (stationName.isBlank()) add("nome da estação")
-    if (locality.isBlank()) add("localidade")
-    if (!hasReference) add("referência RN/MT/PA")
-    if (!hasEquipment) add("equipamento")
-    if (!hasBeforeHeight) add("altura BEFORE")
 }
 
 @Composable
@@ -1166,14 +1152,14 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }
                     OutlinedTextField(durationMinutes, { value -> durationMinutes = value.filter(Char::isDigit); occupation = occupation.copy(plannedDurationSeconds = value.toLongOrNull()?.takeIf { it > 0 }?.times(60)) }, label = { Text("Tempo planejado em minutos (opcional)") }, modifier = Modifier.fillMaxWidth())
                     Button(onClick = {
-                        val missing = readinessMissingItems(
+                        val missing = OccupationReadiness.missing(ReadinessInput(
                             projectName = projectName,
                             stationName = name,
                             locality = locality,
                             hasReference = occupation.referencePointId != null,
                             hasEquipment = occupation.equipment != null,
                             hasBeforeHeight = occupation.hasBeforeHeight,
-                        )
+                        ))
                         if (missing.isNotEmpty()) {
                             newStep = when {
                                 projectName.isBlank() -> 1
