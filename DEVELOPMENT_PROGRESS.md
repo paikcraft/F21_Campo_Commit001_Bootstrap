@@ -77,3 +77,16 @@
 - ALTERAÇÕES: `ACTIVE` e `FINALIZATION` passaram a ser rotas operacionais próprias; READY/INICIAR conduz ao rastreio ativo; PARAR conduz à finalização; reabertura restaura a rota conforme o estado; home recebeu cabeçalho operacional consistente com a inspiração C32; estado e dados permanecem persistidos ao navegar para o início
 - LIMITAÇÕES: identidade visual ainda é uma evolução funcional, não uma cópia definitiva do C32; teste físico de navegação e teclado continua pendente
 - PRÓXIMO BLOCO: Bloco 6 — Receiver/Antenna manuais e snapshots
+
+## 2026-09-13 — Bloco 6
+
+- BLOCO: Receiver/Antenna manuais, catálogo persistente e snapshots
+- STATUS: PASS (código, migration, testes instrumentados e Actions; teste físico ainda não executado)
+- COMMITS: `c457d60` → `b87c0c5`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`/Gradle global
+- GITHUB ACTIONS: run `34765738305` PASS para `c457d60`; run `34766100652` PASS para `b87c0c5`; SHA dos dois workflows conferido; unitários, instrumentados Room e build operationalDebug concluídos
+- ROOM VERSION: 17
+- MIGRATION: V15→V16 cria catálogos `receiver_catalog`/`antenna_catalog`; V16→V17 preserva firmware informado no snapshot da ocupação; schema `17.json` versionado
+- ALTERAÇÕES: catálogo manual separado para Receiver e Antenna; criar/listar/editar/arquivar; seleção no fluxo de novo rastreio; origem continua `OPERATOR`; ocupação copia fabricante/modelo/serial/firmware para seu snapshot persistido; teste confirma que editar/arquivar catálogo não reescreve ocupação histórica; versão do APK incrementada para `0.1.6-dev`/versionCode 7
+- LIMITAÇÕES: compatibilidade Spectra continua fora deste marco; nenhum IP/porta/UUID/protocolo é presumido; teste físico do catálogo e do fluxo completo ainda depende do aparelho; exportação/importação de catálogos será tratada no bloco de intercâmbio estruturado
+- PRÓXIMO BLOCO: Bloco 7 — alturas 1..N definitivas e refinamento visual operacional do fluxo BEFORE/AFTER
