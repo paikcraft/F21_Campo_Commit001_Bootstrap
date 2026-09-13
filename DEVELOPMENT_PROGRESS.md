@@ -51,3 +51,16 @@
 - ALTERAÇÕES: DAOs e repository passaram a consultar ativos, pesquisar por identidade, preservar IDs em edição e arquivar sem apagar; tela de Projetos ganhou criação/listagem/pesquisa/edição/arquivamento; Banco de Estações ganhou criação/listagem/pesquisa/edição/município explícito/arquivamento/histórico; referências RN/MT/PA são reutilizadas por estação+tipo+código; DRAFT não é gravado antes de Projeto e Estação reais existirem
 - LIMITAÇÕES: fluxo de recuperação completa e autosave ainda pertencem ao Bloco 4; teste físico continua pendente
 - PRÓXIMO BLOCO: Bloco 4 — autosave e reidratação completa
+
+## 2026-09-13 — Bloco 4
+
+- BLOCO: autosave e reidratação completa
+- STATUS: PASS (persistência/reidratação automatizada e Actions; process death físico ainda não executado)
+- COMMIT: `36bf227`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`
+- GITHUB ACTIONS: run `34764002452` PASS, SHA `36bf227` conferido; unitários, instrumentados e build operationalDebug concluídos
+- ROOM VERSION: 15
+- MIGRATION: nenhuma alteração; dados existentes preservados
+- ALTERAÇÕES: DRAFT só é autosalvo após Projeto/Estação reais; mudanças da ocupação são persistidas pelo estado; `Continuar rastreio` reidrata projeto, estação, município, referência, equipamento manual, duração, estado, timestamps, alturas/unidades, eventos, RAW e SHA-256; teste de fechamento/reabertura verifica ocupação e evidências
+- LIMITAÇÕES: snapshots históricos ainda usam os campos de equipamento persistidos na ocupação e IDs reconstruídos no mapper; snapshots dedicados pertencem ao Bloco 6; confirmação física de fechar/remover dos recentes permanece pendente
+- PRÓXIMO BLOCO: Bloco 5 — UI operacional com cara de campo
