@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
+import org.json.JSONObject
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -315,6 +316,21 @@ private fun StationScreen(repository: ProjectStationRepository) {
             }
         }
     }
+    val databaseImportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                        ?: error("Não foi possível ler o arquivo selecionado")
+                    val json = JSONObject(text)
+                    check(json.optString("format") == "f21-database-exchange") { "Formato de troca não reconhecido" }
+                    check(json.optInt("formatVersion", -1) == 1) { "Versão de troca não suportada" }
+                    "Arquivo válido: ${json.optJSONArray("stations")?.length() ?: 0} estação(ões), ${json.optJSONArray("referencePoints")?.length() ?: 0} referência(s)"
+                }.onSuccess { status = "$it. A gravação ainda será feita em transação no próximo bloco." }
+                    .onFailure { status = "Importação rejeitada: ${it.message ?: "arquivo inválido"}" }
+            }
+        }
+    }
     val bluetoothPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         val granted = permissions.values.all { it }
         bluetoothDiscoveryStatus = if (granted) "Permissões Bluetooth concedidas. Toque novamente para procurar ou listar receptores."
@@ -524,6 +540,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             OutlinedButton(onClick = { route = "PROJECTS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("PROJETOS") }
                             OutlinedButton(onClick = { route = "STATIONS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("BANCO DE ESTAÇÕES") }
                             OutlinedButton(onClick = { databaseExportLauncher.launch("f21-database-${System.currentTimeMillis()}.json") }, modifier = Modifier.fillMaxWidth()) { Text("EXPORTAR BANCO PARA COMPARTILHAR") }
+                            OutlinedButton(onClick = { databaseImportLauncher.launch(arrayOf("application/json", "text/json", "text/plain")) }, modifier = Modifier.fillMaxWidth()) { Text("IMPORTAR BANCO JSON") }
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
