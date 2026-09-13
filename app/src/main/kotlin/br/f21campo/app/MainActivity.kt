@@ -52,6 +52,7 @@ import br.f21campo.files.RawFileStore
 import androidx.room.Room
 import br.f21campo.data.F21Database
 import br.f21campo.data.ProjectStationRepository
+import br.f21campo.data.DatabaseExchangeJsonCodec
 import br.f21campo.data.Migrations
 import br.f21campo.domain.EntityId
 import br.f21campo.domain.Station
@@ -301,6 +302,19 @@ private fun StationScreen(repository: ProjectStationRepository) {
             }
         }
     }
+    val databaseExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
+            scope.launch {
+                runCatching {
+                    val envelope = repository.createDatabaseExchangeEnvelope()
+                    val json = DatabaseExchangeJsonCodec.encode(envelope)
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                        ?: error("Não foi possível abrir o arquivo de destino")
+                }.onSuccess { status = "Banco exportado como dados estruturados" }
+                    .onFailure { status = "Falha ao exportar banco: ${it.message ?: "erro desconhecido"}" }
+            }
+        }
+    }
     val bluetoothPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
         val granted = permissions.values.all { it }
         bluetoothDiscoveryStatus = if (granted) "Permissões Bluetooth concedidas. Toque novamente para procurar ou listar receptores."
@@ -509,6 +523,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Text("DADOS DE CAMPO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                             OutlinedButton(onClick = { route = "PROJECTS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("PROJETOS") }
                             OutlinedButton(onClick = { route = "STATIONS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("BANCO DE ESTAÇÕES") }
+                            OutlinedButton(onClick = { databaseExportLauncher.launch("f21-database-${System.currentTimeMillis()}.json") }, modifier = Modifier.fillMaxWidth()) { Text("EXPORTAR BANCO PARA COMPARTILHAR") }
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
