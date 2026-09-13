@@ -4,12 +4,12 @@ Data da auditoria: 2026-09-13
 
 ## Identificação
 
-- HEAD: `008bd0a1be27dce1213443fc7d4e6bf5c1956147`
+- HEAD code: `76fae44126b97879eb3df877434278fe71335701`
 - Branch: `main`
-- VersionName: `0.1.13-dev`
-- VersionCode: `14`
-- Room version: `19`
-- CI mais recente do HEAD: run `34785264096`, `PASS`, SHA conferido
+- VersionName: `0.1.14-dev`
+- VersionCode: `15`
+- Room version: `20`
+- CI mais recente do HEAD: run `34786163981`, `PASS`, SHA conferido
 - Build local: bloqueado neste ambiente; não existe `gradlew.bat` e não há Gradle global disponível
 
 ## Módulos e toolchain
@@ -28,9 +28,9 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationSnapshot, 
 
 ## Migrations e schemas
 
-- Cadeia explícita V1→V19 em `data/src/main/kotlin/br/f21campo/data/Migrations.kt` (V18→V19 adiciona `occupation_snapshots`).
+- Cadeia explícita V1→V20 em `data/src/main/kotlin/br/f21campo/data/Migrations.kt` (V19→V20 permite DRAFT sem Project/Station).
 - `exportSchema = true`.
-- Schemas versionados presentes: 15, 17, 18 e 19. Não há `16.json` versionado; a lacuna está documentada nos relatórios históricos.
+- Schemas versionados presentes: 15, 17, 18, 19 e 20. Não há `16.json` versionado; a lacuna está documentada nos relatórios históricos.
 - Não há `fallbackToDestructiveMigration` encontrado.
 - Testes Room in-memory, migration/reopen e preservação de dados passam no CI.
 
@@ -56,7 +56,7 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationSnapshot, 
 ## Funcionalidades parciais
 
 - Snapshots históricos: PASS no bloco R2.6; `occupation_snapshots` preserva Station, ReferencePoint, Receiver e Antenna, com backfill V18→V19 e reidratação pelo snapshot.
-- Reidratação após process death e comportamento visual no aparelho ainda não têm confirmação física nesta versão.
+- DRAFT inicial agora é persistido com Project/Station nulos, sem IDs fictícios; a prova automatizada de process death/ACTIVE ainda está pendente.
 - Auditoria registra principalmente ações da Occupation; edição de cadastros Station/Reference fora da ocupação não tem trilha completa.
 - Exportação/importação JSON preserva o núcleo atual, mas ainda não inclui snapshots, catálogos e auditoria.
 - O ramo legado de fallback da `MainActivity` continua no código.
@@ -76,8 +76,8 @@ Room persiste Project, Station, ReferencePoint, Occupation, OccupationSnapshot, 
 
 ## Marco atual
 
-**B — GATE R2 MANUAL EM CONSTRUÇÃO.** R2.6 passou em testes, migration e CI; ainda falta fortalecer a recuperação completa e realizar o reteste físico.
+**B — GATE R2 MANUAL EM CONSTRUÇÃO.** R2.6 passou em testes, migration e CI; R2.8 já persiste DRAFT incompleto, mas ainda falta a prova completa de recuperação ACTIVE e o reteste físico.
 
 ## Primeiro bloco incompleto
 
-**R2.8 — AUTOSAVE E REIDRATAÇÃO COMPLETA.** O snapshot histórico passou; o próximo bloco deve provar que o fluxo completo, inclusive ACTIVE, reidrata a UI após fechamento/process death, sem perder eventos, alturas, RAW ou timestamps.
+**R2.8 — AUTOSAVE E REIDRATAÇÃO COMPLETA (EM ANDAMENTO).** DRAFT inicial sem IDs fictícios já é persistido e reaberto; falta automatizar a simulação de fechamento/process death em ACTIVE e verificar a reconstrução integral da tela/evidências.
