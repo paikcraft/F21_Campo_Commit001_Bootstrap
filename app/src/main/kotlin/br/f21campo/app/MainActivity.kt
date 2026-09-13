@@ -251,6 +251,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             } else {
                                 discoveredBluetoothDevices += entry
                             }
+                            discoveredBluetoothDevices.sortWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.first.ifBlank { it.second } })
                         }
                     }
                     android.bluetooth.BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
