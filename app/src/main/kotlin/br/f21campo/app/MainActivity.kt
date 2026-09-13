@@ -553,22 +553,24 @@ private fun StationScreen(repository: ProjectStationRepository) {
         locality = historical?.station?.locality ?: recoveredStation?.locality.orEmpty()
         municipality = historical?.station?.municipality ?: recoveredStation?.municipality.orEmpty()
         val recoveredEquipment = historical?.let { snapshots ->
-            if (snapshots.receiver != null && snapshots.antenna != null) {
+            val receiverSnapshot = snapshots.receiver
+            val antennaSnapshot = snapshots.antenna
+            if (receiverSnapshot != null && antennaSnapshot != null) {
                 br.f21campo.domain.EquipmentSnapshot(
                     br.f21campo.domain.Receiver(
-                        snapshots.receiver.receiverId ?: EntityId.new(),
-                        snapshots.receiver.manufacturer,
-                        snapshots.receiver.model,
-                        snapshots.receiver.serialNumber,
-                        snapshots.receiver.source,
-                        snapshots.receiver.firmware,
+                        receiverSnapshot.receiverId ?: EntityId.new(),
+                        receiverSnapshot.manufacturer,
+                        receiverSnapshot.model,
+                        receiverSnapshot.serialNumber,
+                        receiverSnapshot.source,
+                        receiverSnapshot.firmware,
                     ),
                     br.f21campo.domain.Antenna(
-                        snapshots.antenna.antennaId ?: EntityId.new(),
-                        snapshots.antenna.manufacturer,
-                        snapshots.antenna.model,
-                        snapshots.antenna.serialNumber,
-                        snapshots.antenna.source,
+                        antennaSnapshot.antennaId ?: EntityId.new(),
+                        antennaSnapshot.manufacturer,
+                        antennaSnapshot.model,
+                        antennaSnapshot.serialNumber,
+                        antennaSnapshot.source,
                     ),
                 )
             } else null
