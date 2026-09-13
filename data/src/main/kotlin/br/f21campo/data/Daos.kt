@@ -23,6 +23,7 @@ interface ReferencePointDao {
     @Upsert suspend fun upsert(referencePoint: ReferencePointEntity)
     @Query("SELECT * FROM reference_points WHERE id = :id") suspend fun findById(id: String): ReferencePointEntity?
     @Query("SELECT * FROM reference_points WHERE stationId = :stationId ORDER BY code") suspend fun findByStation(stationId: String): List<ReferencePointEntity>
+    @Query("SELECT * FROM reference_points ORDER BY stationId, code") suspend fun findAll(): List<ReferencePointEntity>
 }
 
 @Dao
@@ -31,24 +32,28 @@ interface OccupationDao {
     @Query("SELECT * FROM occupations WHERE id = :id") suspend fun findById(id: String): OccupationEntity?
     @Query("SELECT * FROM occupations WHERE state NOT IN ('COLLECTED', 'VALIDATED', 'ABORTED') ORDER BY confirmedStartEpochMillis DESC, plannedStartEpochMillis DESC") suspend fun findIncomplete(): List<OccupationEntity>
     @Query("SELECT * FROM occupations WHERE stationId = :stationId ORDER BY confirmedStartEpochMillis DESC, plannedStartEpochMillis DESC") suspend fun findByStation(stationId: String): List<OccupationEntity>
+    @Query("SELECT * FROM occupations ORDER BY plannedStartEpochMillis DESC") suspend fun findAll(): List<OccupationEntity>
 }
 
 @Dao
 interface OccupationArtifactDao {
     @Upsert suspend fun upsert(artifact: OccupationArtifactEntity)
     @Query("SELECT * FROM occupation_artifacts WHERE occupationId = :occupationId ORDER BY importedAtEpochMillis") suspend fun findByOccupation(occupationId: String): List<OccupationArtifactEntity>
+    @Query("SELECT * FROM occupation_artifacts ORDER BY importedAtEpochMillis") suspend fun findAll(): List<OccupationArtifactEntity>
 }
 
 @Dao
 interface OccupationEventDao {
     @Upsert suspend fun upsert(event: OccupationEventEntity)
     @Query("SELECT * FROM occupation_events WHERE occupationId = :occupationId ORDER BY atEpochMillis") suspend fun findByOccupation(occupationId: String): List<OccupationEventEntity>
+    @Query("SELECT * FROM occupation_events ORDER BY atEpochMillis") suspend fun findAll(): List<OccupationEventEntity>
 }
 
 @Dao
 interface HeightMeasurementDao {
     @Upsert suspend fun upsert(measurement: HeightMeasurementEntity)
     @Query("SELECT * FROM height_measurements WHERE occupationId = :occupationId ORDER BY phase, id") suspend fun findByOccupation(occupationId: String): List<HeightMeasurementEntity>
+    @Query("SELECT * FROM height_measurements ORDER BY occupationId, phase, id") suspend fun findAll(): List<HeightMeasurementEntity>
 }
 
 @Dao

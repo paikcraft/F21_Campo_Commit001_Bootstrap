@@ -27,6 +27,23 @@ class ProjectStationRepository(
     private val heightDao: HeightMeasurementDao? = null,
     private val connectionProfileDao: ReceiverConnectionProfileDao? = null,
 ) {
+    /** Creates a validated, structured snapshot for future JSON export. No files are written here. */
+    suspend fun createDatabaseExchangeEnvelope(): DatabaseExchangeEnvelope {
+        val envelope = DatabaseExchangeEnvelope(
+            exportedAtEpochMillis = Instant.now().toEpochMilli(),
+            projects = projectDao.findAll().map { it },
+            stations = stationDao.findAll().map { it },
+            referencePoints = referencePointDao?.findAll().orEmpty(),
+            occupations = occupationDao?.findAll().orEmpty(),
+            heightMeasurements = heightDao?.findAll().orEmpty(),
+            events = eventDao?.findAll().orEmpty(),
+            artifacts = artifactDao?.findAll().orEmpty(),
+            receiverConnectionProfiles = connectionProfileDao?.findAll().orEmpty(),
+        )
+        envelope.validate().getOrThrow()
+        return envelope
+    }
+
     suspend fun save(project: Project): DomainResult<Unit> {
         projectDao.upsert(project.toEntity())
         return DomainResult.Success(Unit)
