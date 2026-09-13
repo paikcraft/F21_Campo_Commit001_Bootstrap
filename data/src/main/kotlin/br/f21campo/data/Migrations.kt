@@ -4,6 +4,23 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 object Migrations {
+    val ALL = arrayOf(
+        V1_TO_V2,
+        V2_TO_V3,
+        V3_TO_V4,
+        V4_TO_V5,
+        V5_TO_V6,
+        V6_TO_V7,
+        V7_TO_V8,
+        V8_TO_V9,
+        V9_TO_V10,
+        V10_TO_V11,
+        V11_TO_V12,
+        V12_TO_V13,
+        V13_TO_V14,
+        V14_TO_V15,
+    )
+
     val V1_TO_V2 = object : Migration(1, 2) {
         override fun migrate(database: SupportSQLiteDatabase) {
             database.execSQL("CREATE TABLE IF NOT EXISTS reference_points (id TEXT NOT NULL PRIMARY KEY, stationId TEXT NOT NULL, type TEXT NOT NULL, code TEXT NOT NULL, description TEXT, observation TEXT)")
