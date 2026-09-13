@@ -156,3 +156,16 @@
 - APK OPERATIONAL: artefato do run `34781927359`; SHA-256 `6EE7C0FF714A0AAA8F1B5D008FB237BEA6DE61C5F25A7232619735D9D8B05893`
 - LIMITAÇÕES: ainda não há comprovação física de que a busca encontre o hardware; descoberta genérica não presume UUID/protocolo Spectra; o teste da rolagem com teclado e a avaliação visual da tela Sobre precisam ser repetidos
 - PRÓXIMO BLOCO: reteste físico da busca Bluetooth e do teclado; depois retomar o Gate R2 ou registrar BLOCKED conforme o resultado
+
+## 2026-09-13 — Importação RAW na finalização
+
+- BLOCO: fluxo de arquivo RAW diretamente na tela de Finalização
+- STATUS: READY_FOR_PHYSICAL_RETEST (código, build e Actions PASS; teste no aparelho ainda pendente)
+- COMMIT: `e699e31`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`/Gradle global
+- GITHUB ACTIONS: run `34782599610` PASS, SHA `e699e3145b48683f8111cd6c25a53ed142b00491` conferido; testes unitários, instrumentados e build `operationalDebug` concluídos
+- ROOM VERSION: 18; nenhuma migration alterada
+- ALTERAÇÕES: a tela Finalização agora oferece `IMPORTAR RAW DO CELULAR` antes do bloco AFTER; o texto explica que o app copia o original para armazenamento controlado, calcula SHA-256 e associa a ocupação; a transferência direta da antena permanece explicitamente fora do escopo até haver transporte/protocolo comprovados; APK incrementado para `0.1.12-dev`/versionCode 13
+- APK OPERATIONAL: artefato do run `34782599610`; SHA-256 `CBAE924C9C504E82D886C13607BAAEA6F5F03607F52D275EF73FB22024A08474`
+- LIMITAÇÕES: o arquivo precisa estar acessível ao seletor do Android; não há download automático do receptor/antena; a posição e clareza do botão precisam ser confirmadas no aparelho
+- PRÓXIMO BLOCO: reteste físico do fluxo Finalização → importar RAW → conferir inventário/SHA-256 → finalizar
