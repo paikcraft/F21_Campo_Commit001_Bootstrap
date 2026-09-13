@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -683,6 +684,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                 }
                             }
                         }, modifier = Modifier.fillMaxWidth()) { Text("LISTAR DISPOSITIVOS PAREADOS") }
+                        OutlinedButton(
+                            onClick = { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("ABRIR CONFIGURAÇÕES BLUETOOTH") }
                         OutlinedButton(onClick = {
                             val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
                                 (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
