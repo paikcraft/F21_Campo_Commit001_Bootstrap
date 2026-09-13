@@ -27,6 +27,7 @@ data class DatabaseImportSummary(
     val events: Int,
     val artifacts: Int,
     val connectionProfiles: Int,
+    val conflicts: List<String> = emptyList(),
 )
 
 class ProjectStationRepository(
@@ -44,6 +45,12 @@ class ProjectStationRepository(
         envelope.validate().getOrElse { return Result.failure(it) }
         val db = database ?: return Result.failure(IllegalStateException("Banco não configurado para importação"))
         return runCatching {
+            val conflicts = buildList {
+                envelope.projects.forEach { if (projectDao.findById(it.id) != null) add("project:${it.id}") }
+                envelope.stations.forEach { if (stationDao.findById(it.id) != null) add("station:${it.id}") }
+                envelope.referencePoints.forEach { if (referencePointDao?.findById(it.id) != null) add("referencePoint:${it.id}") }
+                envelope.occupations.forEach { if (occupationDao?.findById(it.id) != null) add("occupation:${it.id}") }
+            }
             db.withTransaction {
                 projectDao.upsertAll(envelope.projects)
                 stationDao.upsertAll(envelope.stations)
@@ -60,7 +67,7 @@ class ProjectStationRepository(
                 connectionProfileDao?.upsertAll(envelope.receiverConnectionProfiles)
                     ?: error("DAO de perfis de conexão não configurado")
             }
-            DatabaseImportSummary(envelope.projects.size, envelope.stations.size, envelope.referencePoints.size, envelope.occupations.size, envelope.heightMeasurements.size, envelope.events.size, envelope.artifacts.size, envelope.receiverConnectionProfiles.size)
+            DatabaseImportSummary(envelope.projects.size, envelope.stations.size, envelope.referencePoints.size, envelope.occupations.size, envelope.heightMeasurements.size, envelope.events.size, envelope.artifacts.size, envelope.receiverConnectionProfiles.size, conflicts)
         }
     }
     /** Creates a validated, structured snapshot for future JSON export. No files are written here. */
