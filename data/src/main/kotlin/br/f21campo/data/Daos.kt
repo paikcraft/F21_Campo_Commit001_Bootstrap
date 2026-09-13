@@ -66,6 +66,7 @@ interface OccupationEventDao {
 interface HeightMeasurementDao {
     @Upsert suspend fun upsert(measurement: HeightMeasurementEntity)
     @Upsert suspend fun upsertAll(measurements: List<HeightMeasurementEntity>)
+    @Query("DELETE FROM height_measurements WHERE occupationId = :occupationId AND phase = :phase") suspend fun deleteByOccupationAndPhase(occupationId: String, phase: String)
     @Query("SELECT * FROM height_measurements WHERE occupationId = :occupationId ORDER BY phase, id") suspend fun findByOccupation(occupationId: String): List<HeightMeasurementEntity>
     @Query("SELECT * FROM height_measurements ORDER BY occupationId, phase, id") suspend fun findAll(): List<HeightMeasurementEntity>
 }

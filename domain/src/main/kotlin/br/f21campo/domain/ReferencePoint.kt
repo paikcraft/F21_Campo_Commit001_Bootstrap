@@ -19,6 +19,7 @@ data class HeightMeasurement(
     val type: HeightType,
     val observedAt: java.time.Instant? = null,
     val observation: String? = null,
+    val id: EntityId = EntityId.new(),
 ) {
     init { require(valueMeters.isFinite()) { "height must be finite" } }
 }

@@ -253,6 +253,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var afterUndo by remember { mutableStateOf(emptyList<List<String>>()) }
     var beforeUnit by remember { mutableStateOf<String?>(null) }
     var afterUnit by remember { mutableStateOf<String?>(null) }
+    var beforeType by remember { mutableStateOf(HeightType.VERTICAL) }
+    var afterType by remember { mutableStateOf(HeightType.VERTICAL) }
     var event by remember { mutableStateOf("") }
     var fieldEvents by remember { mutableStateOf(emptyList<OccupationEvent>()) }
     var referenceCode by remember { mutableStateOf("") }
@@ -457,6 +459,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
         val afterHeights = heights.filter { it.phase == HeightPhase.AFTER }
         beforeUnit = beforeHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) }
         afterUnit = afterHeights.firstNotNullOfOrNull { heightUnitFromObservation(it.observation) }
+        beforeType = beforeHeights.firstOrNull()?.type ?: HeightType.VERTICAL
+        afterType = afterHeights.firstOrNull()?.type ?: HeightType.VERTICAL
         before = beforeHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, beforeUnit)) }.ifEmpty { listOf("") }
         after = afterHeights.map { "%.4f".format(heightFromMeters(it.valueMeters, afterUnit)) }.ifEmpty { listOf("") }
         afterRegistered = afterHeights.isNotEmpty()
@@ -502,6 +506,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
         afterUndo = emptyList()
         beforeUnit = null
         afterUnit = null
+        beforeType = HeightType.VERTICAL
+        afterType = HeightType.VERTICAL
         afterRegistered = false
         event = ""
         referenceCode = ""
@@ -1478,12 +1484,20 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 } else if (route == "NEW" && occupation.state == OccupationState.DRAFT && newStep == 5) {
                     Button(onClick = { newStep = 4 }) { Text("VOLTAR") }
                     StepHeader(5, "ALTURAS BEFORE", "Registre pelo menos uma leitura antes de iniciar.", fieldBlueDark)
-                    Text("UNIDADE DA ALTURA", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
-                    Text("Selecionada: ${beforeUnit ?: "nenhuma — selecione uma unidade"}")
-                    heightUnitHint(before, beforeUnit)?.let { Text(it, color = fieldBlueDark) }
-                    before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }; Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") } }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("ALTURA DA ANTENA · ANTES", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Registre 1 ou mais leituras. A unidade fica gravada junto de cada evidência.", style = MaterialTheme.typography.bodySmall)
+                            Text("UNIDADE DA ALTURA", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
+                            Text("Selecionada: ${beforeUnit ?: "nenhuma — selecione uma unidade"}")
+                            heightUnitHint(before, beforeUnit)?.let { Text(it, color = fieldBlueDark) }
+                            Text("TIPO DA MEDIÇÃO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { beforeType = type }, enabled = beforeType != type) { Text(type.name) } } }
+                            before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }, modifier = Modifier.fillMaxWidth()) }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }; Button(enabled = before.size > 1, onClick = { beforeUndo = beforeUndo + listOf(before); before = before.dropLast(1) }) { Text("−") }; Button(enabled = beforeUndo.isNotEmpty(), onClick = { before = beforeUndo.last(); beforeUndo = beforeUndo.dropLast(1) }) { Text("DESFAZER") } }
+                        }
+                    }
                     Button(onClick = {
                         val values = before.mapNotNull(String::toDoubleOrNull).filter { it.isFinite() }
                         val firstValid = values.firstOrNull()?.let { heightToMeters(it, beforeUnit) }
@@ -1495,9 +1509,11 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             val currentOccupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = firstValid)
                             occupation = currentOccupation
                             scope.launch {
-                                values.forEach { value ->
-                                    repository.saveHeight(currentOccupation.id, HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, HeightType.VERTICAL, Instant.now(), "unit=${beforeUnit}"))
-                                }
+                                repository.replaceHeights(
+                                    currentOccupation.id,
+                                    HeightPhase.BEFORE,
+                                    values.map { value -> HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, beforeType, Instant.now(), "unit=${beforeUnit}") },
+                                )
                                 status = "${values.size} altura(s) BEFORE registrada(s) em ${beforeUnit} — pronto para READY"
                                 newStep = 6
                             }
@@ -1636,28 +1652,37 @@ private fun StationScreen(repository: ProjectStationRepository) {
                             Text("3. Finalize a coleta após as duas evidências.")
                         }
                     }
-                    Text("Alturas AFTER")
-                    Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
-                    heightUnitHint(after, afterUnit)?.let { Text(it, color = fieldBlueDark) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("mm", "cm", "m").forEach { unit ->
-                            Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) }
+                    Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("ALTURA DA ANTENA · DEPOIS", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
+                            Text("Registre as leituras AFTER antes de finalizar a coleta.", style = MaterialTheme.typography.bodySmall)
+                            Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
+                            heightUnitHint(after, afterUnit)?.let { Text(it, color = fieldBlueDark) }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("mm", "cm", "m").forEach { unit ->
+                                    Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) }
+                                }
+                            }
+                            Text("TIPO DA MEDIÇÃO", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { afterType = type }, enabled = afterType != type) { Text(type.name) } } }
+                            after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }, modifier = Modifier.fillMaxWidth()) }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ AFTER") }
+                                Button(enabled = after.size > 1, onClick = { afterUndo = afterUndo + listOf(after); after = after.dropLast(1) }) { Text("−") }
+                                Button(enabled = afterUndo.isNotEmpty(), onClick = { after = afterUndo.last(); afterUndo = afterUndo.dropLast(1) }) { Text("DESFAZER") }
+                            }
                         }
-                    }
-                    after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ AFTER") }
-                        Button(enabled = after.size > 1, onClick = { afterUndo = afterUndo + listOf(after); after = after.dropLast(1) }) { Text("−") }
-                        Button(enabled = afterUndo.isNotEmpty(), onClick = { after = afterUndo.last(); afterUndo = afterUndo.dropLast(1) }) { Text("DESFAZER") }
                     }
                     Button(onClick = {
                         val values = after.mapNotNull(String::toDoubleOrNull).filter { it.isFinite() }
                         if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura AFTER"
                         else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida"
                         else scope.launch {
-                            values.forEach { value ->
-                                repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, HeightType.VERTICAL, Instant.now(), "unit=${afterUnit}"))
-                            }
+                            repository.replaceHeights(
+                                occupation.id,
+                                HeightPhase.AFTER,
+                                values.map { value -> HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, afterType, Instant.now(), "unit=${afterUnit}") },
+                            )
                             afterRegistered = true
                             status = "${values.size} altura(s) AFTER registrada(s) em ${afterUnit}"
                         }
@@ -1810,6 +1835,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Text("Unidade BEFORE: ${beforeUnit ?: "não selecionada"}")
                 heightUnitHint(before, beforeUnit)?.let { Text(it, color = fieldBlueDark) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { beforeUnit = unit }, enabled = beforeUnit != unit) { Text(unit) } } }
+                Text("Tipo BEFORE: ${beforeType.name}", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { beforeType = type }, enabled = beforeType != type) { Text(type.name) } } }
                 before.forEachIndexed { index, value -> OutlinedTextField(value, { v -> before = before.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { beforeUndo = beforeUndo + listOf(before); before = before + "" }) { Text("+ BEFORE") }
@@ -1823,7 +1850,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     } else if (validBefore != null) {
                         occupation = occupation.copy(hasBeforeHeight = true, beforeHeightMeters = validBefore)
                         scope.launch {
-                            before.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }.forEach { value -> repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, HeightType.VERTICAL, Instant.now(), "unit=${beforeUnit}")) }
+                            repository.replaceHeights(occupation.id, HeightPhase.BEFORE, before.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }.map { value -> HeightMeasurement(HeightPhase.BEFORE, heightToMeters(value, beforeUnit) ?: value, beforeType, Instant.now(), "unit=${beforeUnit}") })
                             status = "${before.count { it.toDoubleOrNull() != null }} altura(s) BEFORE registrada(s)"
                         }
                     } else {
@@ -1834,6 +1861,8 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Text("Unidade AFTER: ${afterUnit ?: "não selecionada"}")
                 heightUnitHint(after, afterUnit)?.let { Text(it, color = fieldBlueDark) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("mm", "cm", "m").forEach { unit -> Button(onClick = { afterUnit = unit }, enabled = afterUnit != unit) { Text(unit) } } }
+                Text("Tipo AFTER: ${afterType.name}", style = MaterialTheme.typography.labelLarge)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { HeightType.entries.forEach { type -> Button(onClick = { afterType = type }, enabled = afterType != type) { Text(type.name) } } }
                 after.forEachIndexed { index, value -> OutlinedTextField(value, { v -> after = after.toMutableList().also { it[index] = v } }, label = { Text("Leitura ${index + 1}") }) }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = { afterUndo = afterUndo + listOf(after); after = after + "" }) { Text("+ AFTER") }
@@ -1843,7 +1872,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 Button(onClick = {
                     val values = after.mapNotNull { it.toDoubleOrNull() }.filter { it.isFinite() }
                     if (afterUnit == null) status = heightUnitHint(after, afterUnit) ?: "Confirme a unidade da altura AFTER" else if (values.isEmpty()) status = "Informe ao menos uma altura AFTER válida" else scope.launch {
-                        values.forEach { value -> repository.saveHeight(occupation.id, HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, HeightType.VERTICAL, Instant.now(), "unit=${afterUnit}")) }
+                        repository.replaceHeights(occupation.id, HeightPhase.AFTER, values.map { value -> HeightMeasurement(HeightPhase.AFTER, heightToMeters(value, afterUnit) ?: value, afterType, Instant.now(), "unit=${afterUnit}") })
                         status = "${values.size} altura(s) AFTER registrada(s)"
                     }
                 }) { Text("Registrar alturas AFTER") }

@@ -171,6 +171,7 @@ class ProjectStationRepository(
                 type = HeightType.valueOf(it.type),
                 observedAt = it.observedAtEpochMillis?.let(Instant::ofEpochMilli),
                 observation = it.observation,
+                id = EntityId(it.id),
             )
         }.orEmpty()
 
@@ -196,7 +197,24 @@ class ProjectStationRepository(
 
     suspend fun saveHeight(occupationId: EntityId, measurement: HeightMeasurement): DomainResult<Unit> {
         val dao = heightDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("height", "DAO not configured"))
-        dao.upsert(HeightMeasurementEntity(EntityId.new().value, occupationId.value, measurement.phase.name, measurement.valueMeters, measurement.type.name, measurement.observedAt?.toEpochMilli(), measurement.observation))
+        dao.upsert(HeightMeasurementEntity(measurement.id.value, occupationId.value, measurement.phase.name, measurement.valueMeters, measurement.type.name, measurement.observedAt?.toEpochMilli(), measurement.observation))
+        return DomainResult.Success(Unit)
+    }
+
+    suspend fun replaceHeights(occupationId: EntityId, phase: HeightPhase, measurements: List<HeightMeasurement>): DomainResult<Unit> {
+        val dao = heightDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("height", "DAO not configured"))
+        val db = database
+        if (db != null) {
+            db.withTransaction {
+                dao.deleteByOccupationAndPhase(occupationId.value, phase.name)
+                measurements.filter { it.phase == phase && it.valueMeters.isFinite() }.forEach { measurement ->
+                    dao.upsert(HeightMeasurementEntity(measurement.id.value, occupationId.value, measurement.phase.name, measurement.valueMeters, measurement.type.name, measurement.observedAt?.toEpochMilli(), measurement.observation))
+                }
+            }
+        } else {
+            dao.deleteByOccupationAndPhase(occupationId.value, phase.name)
+            measurements.filter { it.phase == phase && it.valueMeters.isFinite() }.forEach { saveHeight(occupationId, it) }
+        }
         return DomainResult.Success(Unit)
     }
 

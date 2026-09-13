@@ -8,6 +8,10 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
+import br.f21campo.domain.EntityId
+import br.f21campo.domain.HeightMeasurement
+import br.f21campo.domain.HeightPhase
+import br.f21campo.domain.HeightType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -214,6 +218,49 @@ class RoomMigrationTest {
         assertEquals("ASH801", snapshot?.antennaModel)
         assertEquals("rx-1", snapshot?.receiverSerial)
         assertEquals("ant-1", snapshot?.antennaSerial)
+        database.close()
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun variableHeightSetCanBeReplacedByPhaseWithoutFixedCount() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "height-replace-${System.currentTimeMillis()}.db"
+        val database = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        val repository = ProjectStationRepository(
+            database.projectDao(),
+            database.stationDao(),
+            database.referencePointDao(),
+            database.occupationDao(),
+            database.occupationArtifactDao(),
+            database.occupationEventDao(),
+            database.heightMeasurementDao(),
+            database.receiverConnectionProfileDao(),
+            database,
+            database.receiverCatalogDao(),
+            database.antennaCatalogDao(),
+        )
+        val occupationId = EntityId("occupation-height")
+        repository.replaceHeights(
+            occupationId,
+            HeightPhase.BEFORE,
+            listOf(
+                HeightMeasurement(HeightPhase.BEFORE, 1.234, HeightType.VERTICAL, id = EntityId("h-before-1")),
+                HeightMeasurement(HeightPhase.BEFORE, 1.236, HeightType.VERTICAL, id = EntityId("h-before-2")),
+            ),
+        )
+        assertEquals(2, repository.findHeights(occupationId).size)
+        repository.replaceHeights(
+            occupationId,
+            HeightPhase.BEFORE,
+            listOf(HeightMeasurement(HeightPhase.BEFORE, 1.235, HeightType.SLANT, id = EntityId("h-before-new"))),
+        )
+        val current = repository.findHeights(occupationId)
+        assertEquals(1, current.size)
+        assertEquals(HeightType.SLANT, current.single().type)
+        assertEquals("h-before-new", current.single().id.value)
         database.close()
         context.deleteDatabase(name)
     }
