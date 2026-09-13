@@ -34,4 +34,14 @@ class RawFileStoreTest {
             assertTrue(expected.message!!.contains("unexpected"))
         }
     }
+
+    @Test fun verifyChecksSizeAndSha256AfterImport() {
+        val root = createTempDirectory("f21-raw-verify").toFile()
+        val source = File(root, "source.obs").apply { writeText("raw-evidence") }
+        val store = RawFileStore(File(root, "controlled"))
+        val stored = store.import(source)
+        assertTrue(store.verify(stored.path, stored.sizeBytes, stored.sha256))
+        stored.path.appendText("tampered")
+        assertTrue(!store.verify(stored.path, stored.sizeBytes, stored.sha256))
+    }
 }

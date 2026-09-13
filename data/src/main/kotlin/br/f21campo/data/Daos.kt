@@ -50,6 +50,7 @@ interface OccupationDao {
 interface OccupationArtifactDao {
     @Upsert suspend fun upsert(artifact: OccupationArtifactEntity)
     @Upsert suspend fun upsertAll(artifacts: List<OccupationArtifactEntity>)
+    @Query("SELECT * FROM occupation_artifacts WHERE occupationId = :occupationId AND sha256 = :sha256 ORDER BY importedAtEpochMillis DESC LIMIT 1") suspend fun findByOccupationAndSha256(occupationId: String, sha256: String): OccupationArtifactEntity?
     @Query("SELECT * FROM occupation_artifacts WHERE occupationId = :occupationId ORDER BY importedAtEpochMillis") suspend fun findByOccupation(occupationId: String): List<OccupationArtifactEntity>
     @Query("SELECT * FROM occupation_artifacts ORDER BY importedAtEpochMillis") suspend fun findAll(): List<OccupationArtifactEntity>
 }

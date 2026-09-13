@@ -10,6 +10,8 @@ import br.f21campo.domain.ReferencePointType
 import br.f21campo.domain.ReceiverCatalogItem
 import br.f21campo.domain.AntennaCatalogItem
 import br.f21campo.domain.AuditEvent
+import br.f21campo.domain.StoredFile
+import br.f21campo.domain.ValidationState
 import br.f21campo.domain.Occupation
 import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.HeightMeasurement
@@ -152,6 +154,7 @@ class ProjectStationRepository(
 
     suspend fun saveRawArtifact(occupationId: EntityId, path: String, sizeBytes: Long, sha256: String): DomainResult<Unit> {
         val dao = artifactDao ?: return DomainResult.Failure(br.f21campo.domain.DomainError.InvalidValue("artifact", "DAO not configured"))
+        if (dao.findByOccupationAndSha256(occupationId.value, sha256) != null) return DomainResult.Success(Unit)
         dao.upsert(OccupationArtifactEntity(EntityId.new().value, occupationId.value, "RAW_RECEIVER", path, sizeBytes, sha256, Instant.now().toEpochMilli()))
         return DomainResult.Success(Unit)
     }
@@ -161,6 +164,12 @@ class ProjectStationRepository(
         artifactDao?.findByOccupation(occupationId.value)
             ?.lastOrNull { it.role == "RAW_RECEIVER" }
             ?.let { "${it.sha256.take(12)} · ${it.sizeBytes} bytes" }
+
+    suspend fun findRawArtifacts(occupationId: EntityId): List<StoredFile> =
+        artifactDao?.findByOccupation(occupationId.value)
+            ?.filter { it.role == "RAW_RECEIVER" }
+            ?.map { StoredFile(EntityId(it.id), it.path, it.sizeBytes, it.sha256, immutableOriginal = true, validation = ValidationState.UNKNOWN) }
+            .orEmpty()
 
     suspend fun hasHeight(occupationId: EntityId, phase: HeightPhase): Boolean =
         heightDao?.findByOccupation(occupationId.value)?.any { it.phase == phase.name } == true

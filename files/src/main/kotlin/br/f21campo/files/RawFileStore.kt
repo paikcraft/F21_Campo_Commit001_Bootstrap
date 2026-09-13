@@ -38,4 +38,9 @@ class RawFileStore(private val controlledDirectory: File) {
             return RawFileImport(destination, destination.length(), hash)
         }
     }
+
+    fun verify(file: File, expectedSizeBytes: Long, expectedSha256: String): Boolean {
+        if (!file.isFile || file.length() != expectedSizeBytes) return false
+        FileInputStream(file).use { input -> return Sha256.of(input).equals(expectedSha256, ignoreCase = true) }
+    }
 }

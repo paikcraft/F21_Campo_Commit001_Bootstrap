@@ -270,4 +270,33 @@ class RoomMigrationTest {
         database.close()
         context.deleteDatabase(name)
     }
+
+    @Test
+    fun rawAssociationDeduplicatesBySha256() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "raw-dedup-${System.currentTimeMillis()}.db"
+        val database = Room.databaseBuilder(context, F21Database::class.java, name)
+            .addMigrations(*Migrations.ALL)
+            .build()
+        val repository = ProjectStationRepository(
+            database.projectDao(),
+            database.stationDao(),
+            database.referencePointDao(),
+            database.occupationDao(),
+            database.occupationArtifactDao(),
+            database.occupationEventDao(),
+            database.heightMeasurementDao(),
+            database.receiverConnectionProfileDao(),
+            database,
+            database.receiverCatalogDao(),
+            database.antennaCatalogDao(),
+            database.auditEventDao(),
+        )
+        val occupationId = EntityId("occupation-raw")
+        repository.saveRawArtifact(occupationId, "/controlled/hash.raw", 10L, "sha-raw")
+        repository.saveRawArtifact(occupationId, "/controlled/hash.raw", 10L, "sha-raw")
+        assertEquals(1, database.occupationArtifactDao().findByOccupation(occupationId.value).size)
+        database.close()
+        context.deleteDatabase(name)
+    }
 }

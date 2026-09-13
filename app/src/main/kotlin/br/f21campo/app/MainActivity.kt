@@ -74,6 +74,7 @@ import br.f21campo.domain.OccupationEvent
 import br.f21campo.domain.OccupationEventCategory
 import br.f21campo.domain.EventSeverity
 import br.f21campo.domain.AuditEvent
+import br.f21campo.domain.StoredFile
 import br.f21campo.domain.HeightMeasurement
 import br.f21campo.domain.TrackingTimer
 import br.f21campo.domain.OccupationReadiness
@@ -312,6 +313,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     var pendingOccupationSummary by remember { mutableStateOf<String?>(null) }
     var rawImported by remember { mutableStateOf(false) }
     var rawSummary by remember { mutableStateOf<String?>(null) }
+    var rawArtifacts by remember { mutableStateOf(emptyList<StoredFile>()) }
     var afterRegistered by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf("") }
     var trackingTimeAlerted by remember { mutableStateOf(false) }
@@ -408,6 +410,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                 repository.saveRawArtifact(occupation.id, stored.path.absolutePath, stored.sizeBytes, stored.sha256)
                 recordAudit("RAW_IMPORTED_SHA256")
                 rawImported = true
+                rawArtifacts = repository.findRawArtifacts(occupation.id)
                 rawSummary = "${stored.sha256.take(12)} · ${stored.sizeBytes} bytes"
                 status = "Bruto RAW_RECEIVER importado: ${stored.sha256.take(12)}…"
             }
@@ -492,6 +495,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         }
         rawImported = repository.hasRawArtifact(pending.id)
         rawSummary = repository.rawArtifactSummary(pending.id)
+        rawArtifacts = repository.findRawArtifacts(pending.id)
         fieldEvents = repository.findEvents(pending.id)
         auditEvents = repository.findAuditEvents(pending.id)
         val beforeHeights = heights.filter { it.phase == HeightPhase.BEFORE }
@@ -555,6 +559,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
         referenceType = ReferencePointType.RN
         rawImported = false
         rawSummary = null
+        rawArtifacts = emptyList()
         durationMinutes = ""
         selectedReceiverCatalogId = null
         selectedAntennaCatalogId = null
@@ -570,6 +575,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
     LaunchedEffect(occupation.id) {
         fieldEvents = repository.findEvents(occupation.id)
         auditEvents = repository.findAuditEvents(occupation.id)
+        rawArtifacts = repository.findRawArtifacts(occupation.id)
     }
     LaunchedEffect(occupation.state, occupation.confirmedStart) {
         while (occupation.state == OccupationState.ACTIVE) {
@@ -1739,6 +1745,23 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     }, modifier = Modifier.fillMaxWidth()) { Text("REGISTRAR AFTER") }
                     Button(onClick = { rawPicker.launch("*/*") }, modifier = Modifier.fillMaxWidth()) { Text("SELECIONAR RAW JÁ COPIADO") }
                     Text(if (rawImported) "RAW_RECEIVER: ${rawSummary ?: "associado com SHA-256"}" else "RAW pendente: selecione o arquivo já salvo no celular")
+                    if (rawArtifacts.isNotEmpty()) {
+                        Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("INVENTÁRIO RAW", style = MaterialTheme.typography.labelLarge, color = fieldBlueDark)
+                                rawArtifacts.forEach { artifact ->
+                                    Text(artifact.path.substringAfterLast(File.separator), color = fieldBlueDark)
+                                    Text("SHA-256: ${artifact.sha256}", style = MaterialTheme.typography.bodySmall)
+                                    Text("Tamanho: ${artifact.sizeBytes} bytes · original imutável", style = MaterialTheme.typography.bodySmall)
+                                    OutlinedButton(onClick = {
+                                        val valid = rawStore.verify(File(artifact.path), artifact.sizeBytes, artifact.sha256)
+                                        status = if (valid) "SHA-256 confirmado para ${artifact.path.substringAfterLast(File.separator)}" else "Falha na verificação do SHA-256 — arquivo não deve ser usado"
+                                        recordAudit(if (valid) "RAW_HASH_VERIFIED" else "RAW_HASH_INVALID")
+                                    }, modifier = Modifier.fillMaxWidth()) { Text("VERIFICAR SHA-256") }
+                                }
+                            }
+                        }
+                    }
                     Text(if (afterRegistered) "Altura AFTER registrada" else "Altura AFTER pendente")
                     Button(enabled = occupation.state == OccupationState.STOPPED && rawImported && afterRegistered, onClick = {
                         val result = OccupationStateMachine.collectWithEvidence(occupation, hasRawEvidence = rawImported, hasAfterHeight = afterRegistered)
