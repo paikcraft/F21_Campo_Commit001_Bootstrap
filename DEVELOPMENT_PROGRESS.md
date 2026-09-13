@@ -103,3 +103,16 @@
 - ALTERAÇÕES: cada `HeightMeasurement` mantém ID; registro BEFORE/AFTER substitui somente a fase editada e elimina duplicação; UI permite 1..N leituras, unidade explícita e tipo VERTICAL/SLANT/OTHER; médias/amplitudes/delta continuam derivados; cartões de altura receberam hierarquia visual operacional inspirada no C32
 - LIMITAÇÕES: teste físico de teclado, rolagem e visual ainda pendente; as regras de tolerância continuam deliberadamente ausentes; a tela legada de compatibilidade ainda mantém edição longa fora do wizard
 - PRÓXIMO BLOCO: Bloco 8 — eventos/timeline/auditoria persistente com refinamento visual da tela ACTIVE
+
+## 2026-09-13 — Bloco 8
+
+- BLOCO: eventos, timeline e auditoria persistente com refinamento visual ACTIVE
+- STATUS: PASS (código, migration, testes instrumentados e Actions; teste físico ainda não executado)
+- COMMITS: `2aca444` → `983b4e0`
+- TESTES LOCAIS: `git diff --check` PASS; execução Gradle local BLOCKED por ausência de `gradlew.bat`/Gradle global
+- GITHUB ACTIONS: run `34767743200` PASS para `2aca444`; run `34768034292` PASS para `983b4e0`; SHA dos dois workflows conferido; unitários, instrumentados e build operationalDebug concluídos
+- ROOM VERSION: 18
+- MIGRATION: V17→V18 cria `audit_events`; schema `18.json` versionado; auditoria usa insert append-only sem update/delete
+- ALTERAÇÕES: eventos de campo agora selecionam categoria e severidade; tela ACTIVE mostra linha do tempo de eventos e auditoria; transições READY/ACTIVE/STOPPED/COLLECTED/VALIDATED, equipamento, alturas e RAW geram registros de auditoria; fechamento/reabertura recupera auditoria por ocupação
+- LIMITAÇÕES: o teste físico da tela ACTIVE e do comportamento de rolagem ainda depende do aparelho; auditoria de edição de cadastros fora da ocupação pode ser ampliada; Spectra continua sem protocolo automático
+- PRÓXIMO BLOCO: Bloco 9 — RAW/SHA-256 e finalização com inventário visual e resumo operacional
