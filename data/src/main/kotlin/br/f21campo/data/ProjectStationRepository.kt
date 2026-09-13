@@ -42,6 +42,10 @@ class ProjectStationRepository(
                     ?: error("DAO de ocupações não configurado")
                 heightDao?.upsertAll(envelope.heightMeasurements)
                     ?: error("DAO de alturas não configurado")
+                eventDao?.upsertAll(envelope.events)
+                    ?: error("DAO de eventos não configurado")
+                artifactDao?.upsertAll(envelope.artifacts)
+                    ?: error("DAO de arquivos não configurado")
             }
         }
     }
