@@ -502,8 +502,9 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("F-21 Campo", color = Color.White, style = MaterialTheme.typography.headlineMedium)
                             Text("INÍCIO · ${BuildConfig.BUILD_MODE}", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.labelLarge)
-                            Text("Aquisição e rastreio de referências", color = Color.White)
-                            Text("Versão ${BuildConfig.VERSION_NAME} · funcionamento offline", color = Color(0xFFD5EAF5))
+                            Text("Aquisição e rastreio de referências", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                            Text("Operação offline · pronta para campo", color = Color(0xFFD5EAF5))
+                            Text("Versão ${BuildConfig.VERSION_NAME}", color = Color(0xFFD5EAF5), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                     if (pendingOccupationSummary != null) {
@@ -550,7 +551,7 @@ private fun StationScreen(repository: ProjectStationRepository) {
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("INÍCIO", style = MaterialTheme.typography.titleLarge, color = fieldBlueDark)
-                            Text("Escolha uma operação", color = Color(0xFF52636D))
+                            Text("Acesso rápido", color = Color(0xFF52636D))
                             Button(onClick = { startNewTracking() }, modifier = Modifier.fillMaxWidth()) { Text("NOVO RASTREIO") }
                             Button(onClick = {
                                 scope.launch {
@@ -585,14 +586,16 @@ private fun StationScreen(repository: ProjectStationRepository) {
                                     }
                                     else status = "Nenhum rastreio incompleto encontrado"
                                 }
-                            }, modifier = Modifier.fillMaxWidth()) { Text("CONTINUAR RASTREIO") }
+                            }, enabled = pendingOccupationSummary != null, modifier = Modifier.fillMaxWidth()) { Text("CONTINUAR RASTREIO") }
                         }
                     }
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("DADOS DE CAMPO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
-                            OutlinedButton(onClick = { route = "PROJECTS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("PROJETOS") }
-                            OutlinedButton(onClick = { route = "STATIONS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("BANCO DE ESTAÇÕES") }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { route = "PROJECTS"; showHome = false }, modifier = Modifier.weight(1f)) { Text("PROJETOS") }
+                                OutlinedButton(onClick = { route = "STATIONS"; showHome = false }, modifier = Modifier.weight(1f)) { Text("ESTAÇÕES") }
+                            }
                             OutlinedButton(onClick = { databaseExportLauncher.launch("f21-database-${System.currentTimeMillis()}.json") }, modifier = Modifier.fillMaxWidth()) { Text("EXPORTAR BANCO PARA COMPARTILHAR") }
                             OutlinedButton(onClick = { databaseImportLauncher.launch(arrayOf("application/json", "text/json", "text/plain")) }, modifier = Modifier.fillMaxWidth()) { Text("IMPORTAR BANCO JSON") }
                         }
@@ -601,8 +604,10 @@ private fun StationScreen(repository: ProjectStationRepository) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("APLICATIVO", style = MaterialTheme.typography.titleMedium, color = fieldBlueDark)
                             OutlinedButton(onClick = { route = "CONNECTION"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONEXÃO DE BANCADA") }
-                            OutlinedButton(onClick = { route = "SETTINGS"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURAÇÕES") }
-                            OutlinedButton(onClick = { route = "ABOUT"; showHome = false }, modifier = Modifier.fillMaxWidth()) { Text("SOBRE") }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { route = "SETTINGS"; showHome = false }, modifier = Modifier.weight(1f)) { Text("CONFIGURAÇÕES") }
+                                OutlinedButton(onClick = { route = "ABOUT"; showHome = false }, modifier = Modifier.weight(1f)) { Text("SOBRE") }
+                            }
                         }
                     }
                 } else if (route == "PROJECTS") {
